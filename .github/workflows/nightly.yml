@@ -47,12 +47,19 @@ jobs:
       - name: Version sync and tag
         id: sync
         run: |
-          RESULT=$(node scripts/version-sync.mjs \
+          set -euo pipefail
+          OUTPUT_FILE=$(mktemp)
+          if ! node scripts/version-sync.mjs \
             --mode nightly \
             --date "${{ steps.date.outputs.yymmdd }}" \
             --timezone Europe/Oslo \
             --commit \
-            --github-output)
+            --github-output >"$OUTPUT_FILE" 2>&1; then
+            cat "$OUTPUT_FILE" >&2
+            exit 1
+          fi
+          RESULT=$(tail -1 "$OUTPUT_FILE")
+          echo "$RESULT" | jq -e . >/dev/null
           echo "tag=$(echo "$RESULT" | jq -r .tag)" >> "$GITHUB_OUTPUT"
           echo "floatingTag=$(echo "$RESULT" | jq -r .floatingTag)" >> "$GITHUB_OUTPUT"
           echo "skipped=$(echo "$RESULT" | jq -r .skipped)" >> "$GITHUB_OUTPUT"
@@ -61,10 +68,11 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Push main and tags
-        if: steps.sync.outputs.skipped != 'true'
+        if: steps.sync.outputs.skipped != 'true' && steps.sync.outputs.tag != ''
         env:
           GH_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           TAG="${{ steps.sync.outputs.tag }}"
           FLOATING="${{ steps.sync.outputs.floatingTag }}"
           git push origin main
