@@ -1,0 +1,89 @@
+name: PR compliance
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - labeled
+      - unlabeled
+      - reopened
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  sister-pr:
+    name: Sister PR link (bug label)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate sister PR link for bug fixes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if ! echo "$PR_LABELS" | jq -e 'index("bug") != null' > /dev/null 2>&1; then
+            echo "No bug label — check not required"
+            exit 0
+          fi
+
+          OWNER="${REPO%%/*}"
+          NAME="${REPO#*/}"
+          FOUND=0
+
+          # Full GitHub pull URLs in this repo
+          while IFS= read -r num; do
+            [ -z "$num" ] && continue
+            if [ "$num" != "$PR_NUMBER" ]; then
+              FOUND=1
+              echo "Found sister PR #$num (URL)"
+              break
+            fi
+          done < <(printf '%s' "$PR_BODY" | grep -oiE "https?://github\.com/${OWNER}/${NAME}/pull/[0-9]+" | grep -oE "[0-9]+$" || true)
+
+          # Same-repo shorthand: #123 (not issue-only bare numbers without context — require # prefix)
+          if [ "$FOUND" -eq 0 ]; then
+            while IFS= read -r num; do
+              [ -z "$num" ] && continue
+              if [ "$num" != "$PR_NUMBER" ]; then
+                FOUND=1
+                echo "Found sister PR #$num (shorthand)"
+                break
+              fi
+            done < <(printf '%s' "$PR_BODY" | grep -oE '#[0-9]+' | tr -d '#' || true)
+          fi
+
+          if [ "$FOUND" -eq 0 ]; then
+            COMMENT_MARKER='<!-- sister-pr-compliance -->'
+            EXISTING_COMMENTS=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+              --jq "[.[] | select(.body | contains(\"${COMMENT_MARKER}\"))] | length")
+
+            if [ "$EXISTING_COMMENTS" -eq 0 ]; then
+              COMMENT_BODY="$(printf '%s\n' \
+                "$COMMENT_MARKER" \
+                '' \
+                "This PR is labeled \`bug\` but the description does not link to another PR in **${REPO}**." \
+                '' \
+                'Please add a link to the companion PR (e.g. backport to `main` or forward-port to a release branch):' \
+                '' \
+                "https://github.com/${REPO}/pull/1234" \
+                '' \
+                'Or reference another PR in this repo with `#1234`.')"
+              gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$COMMENT_BODY"
+            else
+              echo "Compliance comment already present — not posting again"
+            fi
+
+            echo "::error::PR is labeled bug but body does not link to another PR in ${REPO}. Add a link such as https://github.com/${REPO}/pull/1234"
+            exit 1
+          fi
+
+          echo "Sister PR requirement satisfied"

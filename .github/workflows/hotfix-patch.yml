@@ -1,0 +1,78 @@
+name: Hotfix patch release
+
+on:
+  push:
+    branches:
+      - "release/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hotfix-patch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  patch-release:
+    name: Patch version and tag
+    if: >-
+      !contains(github.event.head_commit.message, '[skip ci]') &&
+      !endsWith(github.actor, '[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Authenticate as GitHub App
+        id: auth
+        uses: ./.github/actions/app-git-auth
+        with:
+          app-client-id: ${{ vars.APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          token: ${{ steps.auth.outputs.token }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install packages dependencies
+        run: corepack enable && yarn --cwd packages install --immutable
+
+      - name: Version sync and tag
+        id: sync
+        run: |
+          RESULT=$(node scripts/version-sync.mjs \
+            --mode patch \
+            --commit \
+            --github-output)
+          echo "tag=$(echo "$RESULT" | jq -r .tag)" >> "$GITHUB_OUTPUT"
+          echo "floatingTag=$(echo "$RESULT" | jq -r .floatingTag)" >> "$GITHUB_OUTPUT"
+          echo "skipped=$(echo "$RESULT" | jq -r .skipped)" >> "$GITHUB_OUTPUT"
+          echo "branch=$(echo "$RESULT" | jq -r .branch)" >> "$GITHUB_OUTPUT"
+          echo "json<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$RESULT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Push branch and tags
+        if: steps.sync.outputs.skipped != 'true'
+        env:
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          BRANCH="${{ steps.sync.outputs.branch }}"
+          TAG="${{ steps.sync.outputs.tag }}"
+          FLOATING="${{ steps.sync.outputs.floatingTag }}"
+          git push origin "HEAD:${BRANCH}"
+          git push origin "$TAG" "+${FLOATING}"
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.sync.outputs.skipped }}" = "true" ]; then
+            echo "Skipped: nothing new to release (${{ steps.sync.outputs.json }})" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Patch release ${{ steps.sync.outputs.json }}" >> "$GITHUB_STEP_SUMMARY"
+          fi

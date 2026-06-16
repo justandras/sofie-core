@@ -18,6 +18,19 @@ This is a:
 
 Bug fix / Feature / Code improvement / Documentation improvement / Other (please specify)
 
+## Sister PR (required for `bug` label)
+
+<!--
+If this PR is labeled `bug` and targets a release branch, link the companion PR
+(e.g. backport to main or forward-port to release). CI requires a link to another
+PR in this repository.
+
+Example: https://github.com/Sofie-Automation/sofie-core/pull/1234
+-->
+
+- [ ] Not a release-branch bugfix (no sister PR needed)
+- [ ] Sister PR linked:
+
 ## Current Behavior
 
 <!--
@@ -77,6 +90,7 @@ If they're not, please open the PR as a Draft.
 -->
 
 - [ ] PR is ready to be reviewed.
+- [ ] If labeled `bug`, PR body links to a sister PR in this repo (required by CI).
 - [ ] The functionality has been tested by the author.
 - [ ] Relevant unit tests has been added / updated.
 - [ ] Relevant documentation (code comments, [system documentation](https://sofie-automation.github.io/sofie-core/)) has been added / updated.

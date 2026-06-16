@@ -1,0 +1,103 @@
+name: Quarterly release cut
+
+on:
+  schedule:
+    # 1st of Feb, May, Aug, Nov at 00:00 UTC (date resolved in Europe/Oslo in workflow)
+    - cron: "0 0 1 2,5,8,11 *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: q-release
+  cancel-in-progress: false
+
+jobs:
+  cut-release:
+    name: Cut release branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Authenticate as GitHub App
+        id: auth
+        uses: ./.github/actions/app-git-auth
+        with:
+          app-client-id: ${{ vars.APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.auth.outputs.token }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install packages dependencies
+        run: corepack enable && yarn --cwd packages install --immutable
+
+      - name: Resolve release date and branch
+        id: release
+        run: |
+          YYMM=$(TZ=Europe/Oslo date +%y%m)
+          echo "yymm=$YYMM" >> "$GITHUB_OUTPUT"
+          BRANCH=$(node scripts/version-sync.mjs --mode stable --date "$YYMM" --timezone Europe/Oslo --print-branch)
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if release branch already exists
+        id: exists
+        run: |
+          if git ls-remote --heads origin "${{ steps.release.outputs.branch }}" | grep -q .; then
+            echo "Release branch ${{ steps.release.outputs.branch }} already exists"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release branch
+        if: steps.exists.outputs.skip != 'true'
+        run: git checkout -b "${{ steps.release.outputs.branch }}"
+
+      - name: Version sync and tag
+        if: steps.exists.outputs.skip != 'true'
+        id: sync
+        run: |
+          RESULT=$(node scripts/version-sync.mjs \
+            --mode stable \
+            --date "${{ steps.release.outputs.yymm }}" \
+            --timezone Europe/Oslo \
+            --commit \
+            --github-output)
+          echo "tag=$(echo "$RESULT" | jq -r .tag)" >> "$GITHUB_OUTPUT"
+          echo "floatingTag=$(echo "$RESULT" | jq -r .floatingTag)" >> "$GITHUB_OUTPUT"
+          echo "skipped=$(echo "$RESULT" | jq -r .skipped)" >> "$GITHUB_OUTPUT"
+          echo "branch=$(echo "$RESULT" | jq -r .branch)" >> "$GITHUB_OUTPUT"
+          echo "json<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$RESULT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Push release branch and tags
+        if: steps.exists.outputs.skip != 'true' && steps.sync.outputs.skipped != 'true'
+        env:
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          BRANCH="${{ steps.sync.outputs.branch }}"
+          TAG="${{ steps.sync.outputs.tag }}"
+          FLOATING="${{ steps.sync.outputs.floatingTag }}"
+          git push -u origin "HEAD:${BRANCH}"
+          git push origin "$TAG" "+${FLOATING}"
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.exists.outputs.skip }}" = "true" ]; then
+            echo "Skipped: branch already exists" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.sync.outputs.skipped }}" = "true" ]; then
+            echo "Skipped: no release changes (${{ steps.sync.outputs.json }})" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Released ${{ steps.sync.outputs.json }}" >> "$GITHUB_STEP_SUMMARY"
+          fi

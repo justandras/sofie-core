@@ -1,0 +1,81 @@
+name: Nightly release
+
+on:
+  schedule:
+    # 23:00 UTC ≈ midnight Europe/Oslo (standard time)
+    - cron: "0 23 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-main
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    name: Nightly version and tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Authenticate as GitHub App
+        id: auth
+        uses: ./.github/actions/app-git-auth
+        with:
+          app-client-id: ${{ vars.APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.auth.outputs.token }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install packages dependencies
+        run: corepack enable && yarn --cwd packages install --immutable
+
+      - name: Resolve nightly date
+        id: date
+        run: |
+          echo "yymmdd=$(TZ=Europe/Oslo date +%y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Version sync and tag
+        id: sync
+        run: |
+          RESULT=$(node scripts/version-sync.mjs \
+            --mode nightly \
+            --date "${{ steps.date.outputs.yymmdd }}" \
+            --timezone Europe/Oslo \
+            --commit \
+            --github-output)
+          echo "tag=$(echo "$RESULT" | jq -r .tag)" >> "$GITHUB_OUTPUT"
+          echo "floatingTag=$(echo "$RESULT" | jq -r .floatingTag)" >> "$GITHUB_OUTPUT"
+          echo "skipped=$(echo "$RESULT" | jq -r .skipped)" >> "$GITHUB_OUTPUT"
+          echo "json<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$RESULT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Push main and tags
+        if: steps.sync.outputs.skipped != 'true'
+        env:
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          TAG="${{ steps.sync.outputs.tag }}"
+          FLOATING="${{ steps.sync.outputs.floatingTag }}"
+          git push origin main
+          git push origin "$TAG" "+${FLOATING}"
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.sync.outputs.skipped }}" = "true" ]; then
+            echo "Skipped: nothing new to release (${{ steps.sync.outputs.json }})" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Nightly release ${{ steps.sync.outputs.json }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
