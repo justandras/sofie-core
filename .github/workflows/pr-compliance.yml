@@ -39,10 +39,15 @@ jobs:
           NAME="${REPO#*/}"
           FOUND=0
 
+          sister_pr_exists() {
+            local num="$1"
+            gh pr view "$num" --repo "$REPO" --json number >/dev/null 2>&1
+          }
+
           # Full GitHub pull URLs in this repo
           while IFS= read -r num; do
             [ -z "$num" ] && continue
-            if [ "$num" != "$PR_NUMBER" ]; then
+            if [ "$num" != "$PR_NUMBER" ] && sister_pr_exists "$num"; then
               FOUND=1
               echo "Found sister PR #$num (URL)"
               break
@@ -53,7 +58,7 @@ jobs:
           if [ "$FOUND" -eq 0 ]; then
             while IFS= read -r num; do
               [ -z "$num" ] && continue
-              if [ "$num" != "$PR_NUMBER" ]; then
+              if [ "$num" != "$PR_NUMBER" ] && sister_pr_exists "$num"; then
                 FOUND=1
                 echo "Found sister PR #$num (shorthand)"
                 break
@@ -76,7 +81,7 @@ jobs:
                 '' \
                 "https://github.com/${REPO}/pull/1234" \
                 '' \
-                'Or reference another PR in this repo with `#1234`.')"
+                'Or reference another PR in this repo with `#1234` (the linked PR must exist).')"
               gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$COMMENT_BODY"
             else
               echo "Compliance comment already present — not posting again"

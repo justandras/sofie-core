@@ -1,6 +1,6 @@
 import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { execSync, spawnSync } from "node:child_process";
+import { execFileSync, execSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -76,11 +76,11 @@ function createRepo({
 	execSync('git commit -m "init"', { cwd: root, stdio: "pipe" });
 
 	if (branch !== "main") {
-		execSync(`git checkout -b ${branch}`, { cwd: root, stdio: "pipe" });
+		execFileSync("git", ["checkout", "-b", branch], { cwd: root, stdio: "pipe" });
 	}
 
 	for (const tag of tags) {
-		execSync(`git tag ${tag}`, { cwd: root, stdio: "pipe" });
+		execFileSync("git", ["tag", tag], { cwd: root, stdio: "pipe" });
 	}
 
 	for (let i = 0; i < extraCommits; i++) {
@@ -94,7 +94,11 @@ function createRepo({
 
 function run(args, root) {
 	return spawnSync(process.execPath, [SCRIPT, ...args], {
-		env: { ...process.env, VERSION_SYNC_ROOT: root },
+		env: {
+			...process.env,
+			VERSION_SYNC_ROOT: root,
+			VERSION_SYNC_ALLOW_COMMIT: "1",
+		},
 		encoding: "utf8",
 	});
 }
@@ -206,6 +210,45 @@ describe("branch and mode helpers", () => {
 		assert.equal(
 			testing.branchMatchesReleaseLine("release/26.05", { yy: 26, mm: 5 }),
 			true,
+		);
+	});
+});
+
+describe("input validation", () => {
+	it("accepts stable and nightly semver versions", () => {
+		testing.assertValidSemverVersion("26.5.1");
+		testing.assertValidSemverVersion("0.0.0-nightly.260604");
+		testing.assertValidSemverVersion(
+			"0.0.0-nightly.260604-release-26.05-abc1234",
+		);
+	});
+
+	it("rejects invalid semver versions", () => {
+		assert.throws(
+			() => testing.assertValidSemverVersion("26.5.1;id"),
+			/invalid semver version/,
+		);
+		assert.throws(
+			() => testing.assertValidSemverVersion("not-a-version"),
+			/invalid semver version/,
+		);
+	});
+
+	it("accepts common git refs", () => {
+		testing.assertValidGitRef("v26.5.1");
+		testing.assertValidGitRef("0.0.0-nightly.260604");
+		testing.assertValidGitRef("latest");
+		testing.assertValidGitRef("nightly");
+	});
+
+	it("rejects shell-metacharacter git refs", () => {
+		assert.throws(
+			() => testing.assertValidGitRef("v1.2.3;id"),
+			/invalid git ref/,
+		);
+		assert.throws(
+			() => testing.assertValidGitRef("tag..evil"),
+			/invalid git ref/,
 		);
 	});
 });
@@ -511,7 +554,7 @@ describe("nightly mode", () => {
 			root,
 		);
 		assert.equal(r.status, 0);
-		assert.match(r.stdout.trim(), /^0\.0\.0-nightly\.260604-release\/26\.05-[0-9a-f]+$/);
+		assert.match(r.stdout.trim(), /^0\.0\.0-nightly\.260604-release-26\.05-[0-9a-f]+$/);
 	});
 
 	it("rejects nightly without day when date is YYMM only", () => {
@@ -715,6 +758,16 @@ describe("stable migration and flags", () => {
 		);
 		assert.notEqual(r.status, 0);
 		assert.match(r.stderr, /--commit cannot be used with --check/);
+	});
+
+	it("rejects --commit when VERSION_SYNC_ROOT is set without allow flag", () => {
+		const root = createRepo({ branch: "release/26.05" });
+		const r = spawnSync(process.execPath, [SCRIPT, "--mode", "patch", "--commit", "--dry-run"], {
+			env: { ...process.env, VERSION_SYNC_ROOT: root },
+			encoding: "utf8",
+		});
+		assert.notEqual(r.status, 0);
+		assert.match(r.stderr, /--commit is not allowed when VERSION_SYNC_ROOT is set/);
 	});
 
 	it("rejects --patch on stable when not zero", () => {

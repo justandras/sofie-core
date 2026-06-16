@@ -88,6 +88,23 @@ export const addSteps = addMigrationSteps(CURRENT_SYSTEM_VERSION, [
 ])
 `;
 
+const SEMVER_VERSION_PATTERN =
+	/^(?:\d+\.\d+\.\d+|0\.0\.0-nightly\.\d{6}(?:-[a-zA-Z0-9._-]+-[0-9a-f]+)?)$/;
+
+const INVALID_GIT_REF_PATTERN = /[\s^~:?*[\\@{;|`$()<>&|]/;
+
+export function assertValidSemverVersion(version) {
+	if (!SEMVER_VERSION_PATTERN.test(version)) {
+		throw new Error(`invalid semver version: ${version}`);
+	}
+}
+
+export function assertValidGitRef(ref) {
+	if (!ref || INVALID_GIT_REF_PATTERN.test(ref) || ref.includes("..")) {
+		throw new Error(`invalid git ref: ${ref}`);
+	}
+}
+
 function printHelp() {
 	console.log(`Usage: node scripts/version-sync.mjs [--mode stable|patch|nightly] [options]
 
@@ -406,11 +423,16 @@ function runLernaSetVersion(version, dryRun) {
 		return;
 	}
 	log(`running yarn set-version ${version} --force-publish in packages/`);
-	execSync(`yarn set-version ${version} --force-publish`, {
-		cwd: path.join(REPO_ROOT, "packages"),
-		stdio: "inherit",
-		env: { ...process.env, CI: "true" },
-	});
+	assertValidSemverVersion(version);
+	execFileSync(
+		"yarn",
+		["set-version", version, "--force-publish"],
+		{
+			cwd: path.join(REPO_ROOT, "packages"),
+			stdio: "inherit",
+			env: { ...process.env, CI: "true" },
+		},
+	);
 	log("lerna set-version finished");
 }
 
@@ -589,7 +611,8 @@ export function nightlyVersionFromVersionDate(versionDate) {
 
 	// Only add metadata if not on main
 	if (branch !== "main") {
-		suffix = `-${branch}-${hash}`;
+		const safeBranch = branch.replace(/[^a-zA-Z0-9._-]/g, "-");
+		suffix = `-${safeBranch}-${hash}`;
 	}
 
 	return `0.0.0-nightly.${pad2(versionDate.yy)}${pad2(versionDate.mm)}${pad2(versionDate.dd)}${suffix}`;
@@ -888,10 +911,15 @@ function previousReleaseTagForTarget(target) {
 }
 
 function commitCountSinceTag(tag) {
-	const count = execSync(`git rev-list --count ${tag}..HEAD`, {
-		cwd: REPO_ROOT,
-		encoding: "utf8",
-	}).trim();
+	assertValidGitRef(tag);
+	const count = execFileSync(
+		"git",
+		["rev-list", "--count", `${tag}..HEAD`],
+		{
+			cwd: REPO_ROOT,
+			encoding: "utf8",
+		},
+	).trim();
 	return parseInt(count, 10);
 }
 
@@ -950,10 +978,15 @@ function commitForFloatingTag(floating) {
 	if (!gitTagExists(floating)) {
 		return null;
 	}
-	return execSync(`git rev-parse ${floating}^{commit}`, {
-		cwd: REPO_ROOT,
-		encoding: "utf8",
-	}).trim();
+	assertValidGitRef(floating);
+	return execFileSync(
+		"git",
+		["rev-parse", `${floating}^{commit}`],
+		{
+			cwd: REPO_ROOT,
+			encoding: "utf8",
+		},
+	).trim();
 }
 
 function moveFloatingTag(target, readOnly) {
@@ -1077,6 +1110,16 @@ function main() {
 		throw new Error("--commit cannot be used with --check");
 	}
 
+	if (
+		opts.commit &&
+		process.env.VERSION_SYNC_ROOT &&
+		process.env.VERSION_SYNC_ALLOW_COMMIT !== "1"
+	) {
+		throw new Error(
+			"--commit is not allowed when VERSION_SYNC_ROOT is set (test/CI isolation only; set VERSION_SYNC_ALLOW_COMMIT=1 to override)",
+		);
+	}
+
 	log(
 		`started with options: mode=${opts.mode} date=${opts.date ?? "(inferred)"} timezone=${opts.timezone}${opts.dryRun ? " dry-run" : ""}${opts.check ? " check" : ""}${opts.commit ? " commit" : ""}`,
 	);
@@ -1163,6 +1206,8 @@ export const testing = {
 	commitMessageForTarget,
 	githubOutputPayload,
 	patchFromTag,
+	assertValidSemverVersion,
+	assertValidGitRef,
 };
 
 const isMain =
