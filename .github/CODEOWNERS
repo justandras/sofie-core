@@ -1,3 +1,3 @@
 # Release automation ownership
-/.github/                 @Sofie-Automation/maintainers
-/scripts/version-sync.mjs @Sofie-Automation/maintainers
+/.github/                 @justandras
+/scripts/version-sync.mjs @justandras
