@@ -18,7 +18,7 @@ import { execFileSync, execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
+// this is a comment to create a fake commit
 const LOG_PREFIX = "version-sync";
 
 /** When set, info logs are buffered (machine-readable console.log output stays clean). */
@@ -424,18 +424,12 @@ function runLernaSetVersion(version, dryRun) {
 	}
 	log(`running yarn set-version ${version} --force-publish in packages/`);
 	assertValidSemverVersion(version);
-	execFileSync(
-		"yarn",
-		["set-version", version, "--force-publish"],
-		{
-			cwd: path.join(REPO_ROOT, "packages"),
-			// Keep stdout clean for --github-output (CI captures JSON from console.log).
-			stdio: bufferLogs
-				? ["inherit", process.stderr, process.stderr]
-				: "inherit",
-			env: { ...process.env, CI: "true" },
-		},
-	);
+	execFileSync("yarn", ["set-version", version, "--force-publish"], {
+		cwd: path.join(REPO_ROOT, "packages"),
+		// Keep stdout clean for --github-output (CI captures JSON from console.log).
+		stdio: bufferLogs ? ["inherit", process.stderr, process.stderr] : "inherit",
+		env: { ...process.env, CI: "true" },
+	});
 	log("lerna set-version finished");
 }
 
@@ -915,14 +909,10 @@ function previousReleaseTagForTarget(target) {
 
 function commitCountSinceTag(tag) {
 	assertValidGitRef(tag);
-	const count = execFileSync(
-		"git",
-		["rev-list", "--count", `${tag}..HEAD`],
-		{
-			cwd: REPO_ROOT,
-			encoding: "utf8",
-		},
-	).trim();
+	const count = execFileSync("git", ["rev-list", "--count", `${tag}..HEAD`], {
+		cwd: REPO_ROOT,
+		encoding: "utf8",
+	}).trim();
 	return parseInt(count, 10);
 }
 
@@ -982,14 +972,10 @@ function commitForFloatingTag(floating) {
 		return null;
 	}
 	assertValidGitRef(floating);
-	return execFileSync(
-		"git",
-		["rev-parse", `${floating}^{commit}`],
-		{
-			cwd: REPO_ROOT,
-			encoding: "utf8",
-		},
-	).trim();
+	return execFileSync("git", ["rev-parse", `${floating}^{commit}`], {
+		cwd: REPO_ROOT,
+		encoding: "utf8",
+	}).trim();
 }
 
 function moveFloatingTag(target, readOnly) {
