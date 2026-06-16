@@ -429,7 +429,10 @@ function runLernaSetVersion(version, dryRun) {
 		["set-version", version, "--force-publish"],
 		{
 			cwd: path.join(REPO_ROOT, "packages"),
-			stdio: "inherit",
+			// Keep stdout clean for --github-output (CI captures JSON from console.log).
+			stdio: bufferLogs
+				? ["inherit", process.stderr, process.stderr]
+				: "inherit",
 			env: { ...process.env, CI: "true" },
 		},
 	);

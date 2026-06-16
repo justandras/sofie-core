@@ -50,3 +50,6 @@ Configure for `main` and `release/**`:
 - Require status checks (CI + PR compliance)
 - Restrict who can push and bypass rules
 - Disallow force-push
+- **Allow the release App bot to bypass** required pull requests: add `YOUR_APP_SLUG[bot]` (e.g. `justatestingbot[bot]`) under **Rules → Rulesets → main → Bypass list**, or classic branch protection **Allow specified actors to bypass required pull requests**
+
+Without bypass, nightly/q-release/hotfix fail with `GH013: Changes must be made through a pull request` even when the App token is valid.
