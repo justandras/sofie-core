@@ -55,4 +55,4 @@
  */
 
 // Note: Only set this to release versions, (ie X.Y.Z), not pre-releases (ie X.Y.Z-0-pre-release)
-export const CURRENT_SYSTEM_VERSION = '0.0.0-nightly.260706'
+export const CURRENT_SYSTEM_VERSION = '0.0.0-nightly.260707'
