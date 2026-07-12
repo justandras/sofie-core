@@ -1,7 +1,7 @@
 {
 	"name": "@sofie-automation/webui",
 	"private": true,
-	"version": "0.0.0-nightly.260711",
+	"version": "0.0.0-nightly.260712",
 	"type": "module",
 	"license": "MIT",
 	"repository": {
@@ -36,10 +36,10 @@
 		"@fortawesome/react-fontawesome": "^3.3.1",
 		"@jstarpl/react-contextmenu": "^2.15.3",
 		"@popperjs/core": "^2.11.8",
-		"@sofie-automation/blueprints-integration": "0.0.0-nightly.260711",
-		"@sofie-automation/corelib": "0.0.0-nightly.260711",
-		"@sofie-automation/meteor-lib": "0.0.0-nightly.260711",
-		"@sofie-automation/shared-lib": "0.0.0-nightly.260711",
+		"@sofie-automation/blueprints-integration": "0.0.0-nightly.260712",
+		"@sofie-automation/corelib": "0.0.0-nightly.260712",
+		"@sofie-automation/meteor-lib": "0.0.0-nightly.260712",
+		"@sofie-automation/shared-lib": "0.0.0-nightly.260712",
 		"@sofie-automation/sorensen": "^1.5.11",
 		"@testing-library/user-event": "^14.6.1",
 		"bootstrap": "^5.3.8",
