@@ -1,6 +1,6 @@
 {
 	"name": "@sofie-automation/server-core-integration",
-	"version": "0.0.0-nightly.260712",
+	"version": "0.0.0-nightly.260713",
 	"description": "Library for connecting to Core",
 	"main": "dist/index.js",
 	"typings": "dist/index.d.ts",
@@ -78,7 +78,7 @@
 	},
 	"dependencies": {
 		"@koa/router": "^15.4.0",
-		"@sofie-automation/shared-lib": "0.0.0-nightly.260712",
+		"@sofie-automation/shared-lib": "0.0.0-nightly.260713",
 		"ejson": "^2.2.3",
 		"koa": "^3.2.0",
 		"prom-client": "^15.1.3",
