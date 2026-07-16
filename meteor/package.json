@@ -1,6 +1,6 @@
 {
 	"name": "automation-core",
-	"version": "0.0.0-nightly.260715",
+	"version": "0.0.0-nightly.260716",
 	"private": true,
 	"engines": {
 		"node": ">=22.20.0"
