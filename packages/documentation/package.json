@@ -1,6 +1,6 @@
 {
 	"name": "sofie-documentation",
-	"version": "0.0.0-nightly.260716",
+	"version": "0.0.0-nightly.260717",
 	"private": true,
 	"scripts": {
 		"docusaurus": "docusaurus",

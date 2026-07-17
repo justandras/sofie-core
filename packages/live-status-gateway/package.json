@@ -1,6 +1,6 @@
 {
 	"name": "live-status-gateway",
-	"version": "0.0.0-nightly.260716",
+	"version": "0.0.0-nightly.260717",
 	"private": true,
 	"description": "Provides state from Sofie over sockets",
 	"license": "MIT",
@@ -46,11 +46,11 @@
 		"production"
 	],
 	"dependencies": {
-		"@sofie-automation/blueprints-integration": "0.0.0-nightly.260716",
-		"@sofie-automation/corelib": "0.0.0-nightly.260716",
-		"@sofie-automation/live-status-gateway-api": "0.0.0-nightly.260716",
-		"@sofie-automation/server-core-integration": "0.0.0-nightly.260716",
-		"@sofie-automation/shared-lib": "0.0.0-nightly.260716",
+		"@sofie-automation/blueprints-integration": "0.0.0-nightly.260717",
+		"@sofie-automation/corelib": "0.0.0-nightly.260717",
+		"@sofie-automation/live-status-gateway-api": "0.0.0-nightly.260717",
+		"@sofie-automation/server-core-integration": "0.0.0-nightly.260717",
+		"@sofie-automation/shared-lib": "0.0.0-nightly.260717",
 		"debug": "^4.4.3",
 		"fast-clone": "^1.5.13",
 		"influx": "^5.12.0",
