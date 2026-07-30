@@ -26,6 +26,8 @@ Instead of semver we use CalVer. The minor number gets incremented for each cale
 
 **Quarterly cut** ([`q-release.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/q-release.yml)): runs on **1 Jan / 1 Apr / 1 Jul / 1 Oct** (first day of the _next_ quarter). The version date is Oslo **yesterday**, so last-day-of-quarter commits still land in that version (e.g. 1 Apr cuts `release/26.03`).
 
+Before creating `release/YY.MM`, the cut job snapshots docs on **`main`** with `docusaurus docs:version YY.MM` (quarter only — not patch). That commit is pushed to `main`, then the release branch is cut from that tip. Patches do **not** create a new documentation version.
+
 **Patches:** merge to `release/**` → [`hotfix-patch.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/hotfix-patch.yml).
 
 **Nightly:** daily on `main` → [`nightly.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/nightly.yml).

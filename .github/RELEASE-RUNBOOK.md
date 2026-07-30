@@ -24,6 +24,8 @@ The release workflows authenticate as a GitHub App via [`.github/actions/app-git
 
 **Quarterly cadence:** cycles are `03` / `06` / `09` / `12`. Cut on the first day of the _next_ quarter so last-day-of-quarter work is included (e.g. 1 Apr → `release/26.03`).
 
+**Docs snapshot (quarterly only):** `q-release` runs `yarn docusaurus docs:version YY.MM` on `main` and pushes that commit **before** creating `release/YY.MM`. Label is `YY.MM` (not `YY.MM.0`). Patches never snapshot docs. Omit `[skip ci]` on the docs commit so [`deploy-docs.yml`](workflows/deploy-docs.yml) can update GitHub Pages.
+
 Create GitHub environments before first use:
 
 - **`release-automatic`** — no required reviewers (scheduled releases)

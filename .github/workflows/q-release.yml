@@ -45,9 +45,12 @@ jobs:
         run: |
           # Yesterday in Europe/Oslo = last day of the quarter that just ended
           YYMM=$(TZ=Europe/Oslo date -d yesterday +%y%m)
-          echo "yymm=$YYMM" >> "$GITHUB_OUTPUT"
           BRANCH=$(node scripts/version-sync.mjs --mode stable --date "$YYMM" --timezone Europe/Oslo --print-branch)
+          # Docs / dropdown label is quarter only (YY.MM), never patch
+          DOCS_VERSION="${BRANCH#release/}"
+          echo "yymm=$YYMM" >> "$GITHUB_OUTPUT"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "docs_version=$DOCS_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Skip if release branch already exists
         id: exists
@@ -59,9 +62,45 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create release branch
+      - name: Snapshot Docusaurus docs on main
         if: steps.exists.outputs.skip != 'true'
-        run: git checkout -b "${{ steps.release.outputs.branch }}"
+        id: docs
+        run: |
+          set -euo pipefail
+          DOCS_VERSION="${{ steps.release.outputs.docs_version }}"
+          VERSIONS_FILE=packages/documentation/versions.json
+
+          if jq -e --arg v "$DOCS_VERSION" 'index($v) != null' "$VERSIONS_FILE" >/dev/null; then
+            echo "Docusaurus version $DOCS_VERSION already exists"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          yarn --cwd packages/documentation docusaurus docs:version "$DOCS_VERSION"
+          git add packages/documentation/versions.json \
+            packages/documentation/versioned_docs \
+            packages/documentation/versioned_sidebars
+          if git diff --staged --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # No [skip ci]: deploy-docs.yml must run so GitHub Pages picks up the new version
+          git commit -m "chore(docs): snapshot documentation for ${DOCS_VERSION}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push docs snapshot to main
+        if: steps.exists.outputs.skip != 'true' && steps.docs.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin HEAD:main
+
+      - name: Create release branch from main tip
+        if: steps.exists.outputs.skip != 'true'
+        run: |
+          git fetch origin main
+          git checkout -B "${{ steps.release.outputs.branch }}" origin/main
 
       - name: Version sync and tag
         if: steps.exists.outputs.skip != 'true'
@@ -108,5 +147,6 @@ jobs:
           elif [ "${{ steps.sync.outputs.skipped }}" = "true" ]; then
             echo "Skipped: no release changes (${{ steps.sync.outputs.json }})" >> "$GITHUB_STEP_SUMMARY"
           else
+            echo "Docs version: \`${{ steps.release.outputs.docs_version }}\` (committed on main before branch cut)" >> "$GITHUB_STEP_SUMMARY"
             echo "Released ${{ steps.sync.outputs.json }}" >> "$GITHUB_STEP_SUMMARY"
           fi
