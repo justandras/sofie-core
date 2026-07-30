@@ -2,8 +2,9 @@ name: Quarterly release cut
 
 on:
   schedule:
-    # 1st of Feb, May, Aug, Nov at 00:00 UTC (date resolved in Europe/Oslo in workflow)
-    - cron: "0 0 1 2,5,8,11 *"
+    # First day of next quarter (UTC). Version date = Oslo yesterday so last-day work is included.
+    # 1 Apr → 26.03, 1 Jul → 26.06, 1 Oct → 26.09, 1 Jan → prior year .12
+    - cron: "0 0 1 1,4,7,10 *"
   workflow_dispatch:
 
 permissions:
@@ -42,7 +43,8 @@ jobs:
       - name: Resolve release date and branch
         id: release
         run: |
-          YYMM=$(TZ=Europe/Oslo date +%y%m)
+          # Yesterday in Europe/Oslo = last day of the quarter that just ended
+          YYMM=$(TZ=Europe/Oslo date -d yesterday +%y%m)
           echo "yymm=$YYMM" >> "$GITHUB_OUTPUT"
           BRANCH=$(node scripts/version-sync.mjs --mode stable --date "$YYMM" --timezone Europe/Oslo --print-branch)
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"

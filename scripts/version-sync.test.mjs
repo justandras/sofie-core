@@ -119,18 +119,18 @@ afterEach(() => {
 
 describe("release line calendar", () => {
 	const cases = [
-		{ in: { yy: 26, mm: 1 }, want: { yy: 25, mm: 11 } },
-		{ in: { yy: 26, mm: 2 }, want: { yy: 26, mm: 2 } },
-		{ in: { yy: 26, mm: 3 }, want: { yy: 26, mm: 2 } },
-		{ in: { yy: 26, mm: 4 }, want: { yy: 26, mm: 2 } },
-		{ in: { yy: 26, mm: 5 }, want: { yy: 26, mm: 5 } },
-		{ in: { yy: 26, mm: 6 }, want: { yy: 26, mm: 5 } },
-		{ in: { yy: 26, mm: 7 }, want: { yy: 26, mm: 5 } },
-		{ in: { yy: 26, mm: 8 }, want: { yy: 26, mm: 8 } },
-		{ in: { yy: 26, mm: 9 }, want: { yy: 26, mm: 8 } },
-		{ in: { yy: 26, mm: 10 }, want: { yy: 26, mm: 8 } },
-		{ in: { yy: 26, mm: 11 }, want: { yy: 26, mm: 11 } },
-		{ in: { yy: 26, mm: 12 }, want: { yy: 26, mm: 11 } },
+		{ in: { yy: 26, mm: 1 }, want: { yy: 26, mm: 3 } },
+		{ in: { yy: 26, mm: 2 }, want: { yy: 26, mm: 3 } },
+		{ in: { yy: 26, mm: 3 }, want: { yy: 26, mm: 3 } },
+		{ in: { yy: 26, mm: 4 }, want: { yy: 26, mm: 6 } },
+		{ in: { yy: 26, mm: 6 }, want: { yy: 26, mm: 6 } },
+		{ in: { yy: 26, mm: 6 }, want: { yy: 26, mm: 6 } },
+		{ in: { yy: 26, mm: 7 }, want: { yy: 26, mm: 9 } },
+		{ in: { yy: 26, mm: 8 }, want: { yy: 26, mm: 9 } },
+		{ in: { yy: 26, mm: 9 }, want: { yy: 26, mm: 9 } },
+		{ in: { yy: 26, mm: 10 }, want: { yy: 26, mm: 12 } },
+		{ in: { yy: 26, mm: 11 }, want: { yy: 26, mm: 12 } },
+		{ in: { yy: 26, mm: 12 }, want: { yy: 26, mm: 12 } },
 	];
 
 	for (const { in: input, want } of cases) {
@@ -150,12 +150,12 @@ describe("version string helpers", () => {
 	});
 
 	it("formats marketing and file versions", () => {
-		assert.equal(marketingFromRelease({ yy: 26, mm: 5, pp: 0 }), "26.05");
-		assert.equal(marketingFromRelease({ yy: 26, mm: 5, pp: 2 }), "26.05.02");
-		assert.equal(fileVersionFromRelease({ yy: 26, mm: 5, pp: 2 }), "26.5.2");
+		assert.equal(marketingFromRelease({ yy: 26, mm: 6, pp: 0 }), "26.06");
+		assert.equal(marketingFromRelease({ yy: 26, mm: 6, pp: 2 }), "26.06.02");
+		assert.equal(fileVersionFromRelease({ yy: 26, mm: 6, pp: 2 }), "26.6.2");
 		assert.equal(
-			migrationFileBaseFromRelease({ yy: 26, mm: 5, pp: 2 }),
-			"26_05_02",
+			migrationFileBaseFromRelease({ yy: 26, mm: 6, pp: 2 }),
+			"26_06_02",
 		);
 	});
 
@@ -176,39 +176,39 @@ describe("version string helpers", () => {
 
 describe("branch and mode helpers", () => {
 	it("parses release branches", () => {
-		assert.deepEqual(testing.parseReleaseBranch("release/26.05"), {
+		assert.deepEqual(testing.parseReleaseBranch("release/26.06"), {
 			yy: 26,
-			mm: 5,
+			mm: 6,
 			dd: undefined,
 		});
-		assert.equal(testing.parseReleaseBranch("release26.05"), undefined);
+		assert.equal(testing.parseReleaseBranch("release26.06"), undefined);
 		assert.equal(testing.parseReleaseBranch("main"), undefined);
 	});
 
 	it("infers mode from branch name", () => {
 		assert.equal(testing.inferModeFromBranch("main"), "nightly");
-		assert.equal(testing.inferModeFromBranch("release/26.05"), "patch");
+		assert.equal(testing.inferModeFromBranch("release/26.06"), "patch");
 		assert.equal(testing.inferModeFromBranch("feature/foo"), undefined);
 	});
 
 	it("builds release branch names", () => {
 		assert.equal(
-			testing.releaseBranchName({ yy: 26, mm: 5, pp: 2 }),
-			"release/26.05",
+			testing.releaseBranchName({ yy: 26, mm: 6, pp: 2 }),
+			"release/26.06",
 		);
 	});
 
 	it("matches release lines", () => {
 		assert.equal(
-			testing.releaseLinesMatch({ yy: 26, mm: 5 }, { yy: 26, mm: 5 }),
+			testing.releaseLinesMatch({ yy: 26, mm: 6 }, { yy: 26, mm: 6 }),
 			true,
 		);
 		assert.equal(
-			testing.releaseLinesMatch({ yy: 26, mm: 5 }, { yy: 26, mm: 8 }),
+			testing.releaseLinesMatch({ yy: 26, mm: 6 }, { yy: 26, mm: 9 }),
 			false,
 		);
 		assert.equal(
-			testing.branchMatchesReleaseLine("release/26.05", { yy: 26, mm: 5 }),
+			testing.branchMatchesReleaseLine("release/26.06", { yy: 26, mm: 6 }),
 			true,
 		);
 	});
@@ -216,10 +216,10 @@ describe("branch and mode helpers", () => {
 
 describe("input validation", () => {
 	it("accepts stable and nightly semver versions", () => {
-		testing.assertValidSemverVersion("26.5.1");
+		testing.assertValidSemverVersion("26.6.1");
 		testing.assertValidSemverVersion("0.0.0-nightly.260604");
 		testing.assertValidSemverVersion(
-			"0.0.0-nightly.260604-release-26.05-abc1234",
+			"0.0.0-nightly.260604-release-26.06-abc1234",
 		);
 	});
 
@@ -300,19 +300,19 @@ describe("github output payload", () => {
 		const payload = testing.githubOutputPayload(
 			{
 				mode: "stable",
-				marketing: "v26.05",
-				fileVersion: "26.5.0",
-				release: { yy: 26, mm: 5, pp: 0 },
+				marketing: "v26.06",
+				fileVersion: "26.6.0",
+				release: { yy: 26, mm: 6, pp: 0 },
 				floatingTag: "latest",
 			},
 			{ skipped: false },
 		);
 		assert.deepEqual(payload, {
 			mode: "stable",
-			tag: "v26.05",
+			tag: "v26.06",
 			floatingTag: "latest",
 			skipped: false,
-			branch: "release/26.05",
+			branch: "release/26.06",
 		});
 	});
 
@@ -337,10 +337,10 @@ describe("commit messages and tags", () => {
 		assert.equal(
 			testing.gitTagFromTarget({
 				mode: "stable",
-				marketing: "v26.05",
-				fileVersion: "26.5.0",
+				marketing: "v26.06",
+				fileVersion: "26.6.0",
 			}),
-			"v26.05",
+			"v26.06",
 		);
 		assert.equal(
 			testing.gitTagFromTarget({
@@ -355,10 +355,10 @@ describe("commit messages and tags", () => {
 		assert.equal(
 			testing.commitMessageForTarget({
 				mode: "patch",
-				marketing: "v26.05.02",
-				fileVersion: "26.5.2",
+				marketing: "v26.06.02",
+				fileVersion: "26.6.2",
 			}),
-			"chore(release): v26.05.02 [skip ci]",
+			"chore(release): v26.06.02 [skip ci]",
 		);
 		assert.equal(
 			testing.commitMessageForTarget({
@@ -370,7 +370,7 @@ describe("commit messages and tags", () => {
 	});
 
 	it("parses patch from tag", () => {
-		assert.equal(testing.patchFromTag("v26.05.07"), 7);
+		assert.equal(testing.patchFromTag("v26.06.07"), 7);
 	});
 });
 
@@ -378,28 +378,28 @@ describe("CLI print flags", () => {
 	it("--print-branch on stable", () => {
 		const root = createRepo({ branch: "main" });
 		const r = run(
-			["--mode", "stable", "--date", "2605", "--print-branch"],
+			["--mode", "stable", "--date", "2606", "--print-branch"],
 			root,
 		);
 		assert.equal(r.status, 0);
-		assert.equal(r.stdout.trim(), "release/26.05");
+		assert.equal(r.stdout.trim(), "release/26.06");
 	});
 
 	it("--print-tag on stable", () => {
 		const root = createRepo({ branch: "main" });
-		const r = run(["--mode", "stable", "--date", "2605", "--print-tag"], root);
+		const r = run(["--mode", "stable", "--date", "2606", "--print-tag"], root);
 		assert.equal(r.status, 0);
-		assert.equal(r.stdout.trim(), "v26.05");
+		assert.equal(r.stdout.trim(), "v26.06");
 	});
 
 	it("--print-version on patch branch", () => {
 		const root = createRepo({
-			branch: "release/26.05",
-			currentVersion: "26.5.1",
+			branch: "release/26.06",
+			currentVersion: "26.6.1",
 		});
 		const r = run(["--mode", "patch", "--print-version"], root);
 		assert.equal(r.status, 0);
-		assert.equal(r.stdout.trim(), "26.5.2");
+		assert.equal(r.stdout.trim(), "26.6.2");
 	});
 
 	it("--print-branch rejects nightly", () => {
@@ -419,7 +419,7 @@ describe("mode inference", () => {
 	});
 
 	it("infers patch on release branch", () => {
-		const root = createRepo({ branch: "release/26.05" });
+		const root = createRepo({ branch: "release/26.06" });
 		const r = run(["--dry-run"], root);
 		assert.equal(r.status, 0);
 		assert.match(r.stdout + r.stderr, /mode: patch/);
@@ -437,7 +437,7 @@ describe("--dry-run and --check", () => {
 		const root = createRepo({ currentVersion: "26.3.0" });
 		const before = readVersion(root);
 		const r = run(
-			["--mode", "stable", "--date", "2605", "--dry-run"],
+			["--mode", "stable", "--date", "2606", "--dry-run"],
 			root,
 		);
 		assert.equal(r.status, 0);
@@ -447,16 +447,16 @@ describe("--dry-run and --check", () => {
 
 	it("--check exits 1 when out of sync", () => {
 		const root = createRepo({ currentVersion: "26.3.0" });
-		const r = run(["--mode", "stable", "--date", "2605", "--check"], root);
+		const r = run(["--mode", "stable", "--date", "2606", "--check"], root);
 		assert.equal(r.status, 1);
 	});
 
 	it("--check exits 0 when in sync", () => {
 		const root = createRepo({
-			branch: "release/26.05",
-			currentVersion: "26.5.2",
-			meteorVersion: "26.5.2",
-			lernaVersion: "26.5.2",
+			branch: "release/26.06",
+			currentVersion: "26.6.2",
+			meteorVersion: "26.6.2",
+			lernaVersion: "26.6.2",
 		});
 		const r = run(["--mode", "patch", "--patch", "2", "--check"], root);
 		assert.equal(r.status, 0);
@@ -466,7 +466,7 @@ describe("--dry-run and --check", () => {
 	it("--check does not write files", () => {
 		const root = createRepo({ currentVersion: "1.0.0" });
 		const before = readVersion(root);
-		run(["--mode", "stable", "--date", "2605", "--check"], root);
+		run(["--mode", "stable", "--date", "2606", "--check"], root);
 		assert.equal(readVersion(root), before);
 	});
 });
@@ -474,48 +474,48 @@ describe("--dry-run and --check", () => {
 describe("patch resolution", () => {
 	it("increments from currentSystemVersion on matching release line", () => {
 		const root = createRepo({
-			branch: "release/26.05",
-			currentVersion: "26.5.1",
+			branch: "release/26.06",
+			currentVersion: "26.6.1",
 		});
 		const r = run(["--mode", "patch", "--print-tag"], root);
-		assert.equal(r.stdout.trim(), "v26.05.02");
+		assert.equal(r.stdout.trim(), "v26.06.02");
 	});
 
 	it("increments from latest tag when version is on another line", () => {
 		const root = createRepo({
-			branch: "release/26.05",
+			branch: "release/26.06",
 			currentVersion: "26.3.0",
-			tags: ["v26.05.01"],
+			tags: ["v26.06.01"],
 		});
 		const r = run(["--mode", "patch", "--print-tag"], root);
-		assert.equal(r.stdout.trim(), "v26.05.02");
+		assert.equal(r.stdout.trim(), "v26.06.02");
 	});
 
 	it("starts at patch 1 with no prior tag or version on line", () => {
 		const root = createRepo({
-			branch: "release/26.05",
+			branch: "release/26.06",
 			currentVersion: "26.3.0",
 		});
 		const r = run(["--mode", "patch", "--print-tag"], root);
-		assert.equal(r.stdout.trim(), "v26.05.01");
+		assert.equal(r.stdout.trim(), "v26.06.01");
 	});
 
 	it("honours --patch override", () => {
 		const root = createRepo({
-			branch: "release/26.05",
-			currentVersion: "26.5.9",
+			branch: "release/26.06",
+			currentVersion: "26.6.9",
 		});
 		const r = run(
 			["--mode", "patch", "--patch", "4", "--print-tag"],
 			root,
 		);
-		assert.equal(r.stdout.trim(), "v26.05.04");
+		assert.equal(r.stdout.trim(), "v26.06.04");
 	});
 
 	it("refuses auto patch 0 when release line already has patch > 0", () => {
 		const root = createRepo({
-			branch: "release/26.05",
-			currentVersion: "26.5.2",
+			branch: "release/26.06",
+			currentVersion: "26.6.2",
 		});
 		const r = run(["--mode", "stable", "--print-tag"], root);
 		assert.notEqual(r.status, 0);
@@ -524,15 +524,15 @@ describe("patch resolution", () => {
 
 	it("allows stable --patch 0 override", () => {
 		const root = createRepo({
-			branch: "release/26.05",
-			currentVersion: "26.5.2",
+			branch: "release/26.06",
+			currentVersion: "26.6.2",
 		});
 		const r = run(
 			["--mode", "stable", "--patch", "0", "--print-tag"],
 			root,
 		);
 		assert.equal(r.status, 0);
-		assert.equal(r.stdout.trim(), "v26.05");
+		assert.equal(r.stdout.trim(), "v26.06");
 	});
 });
 
@@ -548,13 +548,13 @@ describe("nightly mode", () => {
 	});
 
 	it("branch nightly includes branch and hash suffix", () => {
-		const root = createRepo({ branch: "release/26.05" });
+		const root = createRepo({ branch: "release/26.06" });
 		const r = run(
 			["--mode", "nightly", "--date", "260604", "--print-version"],
 			root,
 		);
 		assert.equal(r.status, 0);
-		assert.match(r.stdout.trim(), /^0\.0\.0-nightly\.260604-release-26\.05-[0-9a-f]+$/);
+		assert.match(r.stdout.trim(), /^0\.0\.0-nightly\.260604-release-26\.06-[0-9a-f]+$/);
 	});
 
 	it("rejects nightly without day when date is YYMM only", () => {
@@ -565,7 +565,7 @@ describe("nightly mode", () => {
 	});
 
 	it("rejects --commit on non-main nightly", () => {
-		const root = createRepo({ branch: "release/26.05" });
+		const root = createRepo({ branch: "release/26.06" });
 		const r = run(
 			["--mode", "nightly", "--date", "260604", "--commit", "--dry-run"],
 			root,
@@ -636,12 +636,12 @@ describe("release skip and tag scenarios", () => {
 
 	it("skips --commit when HEAD already has release tag", () => {
 		const root = createRepo({
-			tags: ["v26.05.01"],
-			currentVersion: "26.5.1",
-			meteorVersion: "26.5.1",
-			lernaVersion: "26.5.1",
+			tags: ["v26.06.01"],
+			currentVersion: "26.6.1",
+			meteorVersion: "26.6.1",
+			lernaVersion: "26.6.1",
 		});
-		execSync("git checkout -b release/26.05", { cwd: root, stdio: "pipe" });
+		execSync("git checkout -b release/26.06", { cwd: root, stdio: "pipe" });
 		const r = run(
 			["--mode", "patch", "--commit", "--dry-run", "--github-output"],
 			root,
@@ -732,7 +732,7 @@ describe("stable migration and flags", () => {
 			withMigrationStep: true,
 		});
 		const r = run(
-			["--mode", "stable", "--date", "2605", "--dry-run"],
+			["--mode", "stable", "--date", "2606", "--dry-run"],
 			root,
 		);
 		assert.equal(r.status, 0);
@@ -742,7 +742,7 @@ describe("stable migration and flags", () => {
 
 	it("patch dry-run skips migration rotation", () => {
 		const root = createRepo({
-			branch: "release/26.05",
+			branch: "release/26.06",
 			withMigrationStep: true,
 		});
 		const r = run(["--mode", "patch", "--dry-run"], root);
@@ -761,7 +761,7 @@ describe("stable migration and flags", () => {
 	});
 
 	it("rejects --commit when VERSION_SYNC_ROOT is set without allow flag", () => {
-		const root = createRepo({ branch: "release/26.05" });
+		const root = createRepo({ branch: "release/26.06" });
 		const r = spawnSync(process.execPath, [SCRIPT, "--mode", "patch", "--commit", "--dry-run"], {
 			env: { ...process.env, VERSION_SYNC_ROOT: root },
 			encoding: "utf8",
@@ -773,7 +773,7 @@ describe("stable migration and flags", () => {
 	it("rejects --patch on stable when not zero", () => {
 		const root = createRepo();
 		const r = run(
-			["--mode", "stable", "--date", "2605", "--patch", "2"],
+			["--mode", "stable", "--date", "2606", "--patch", "2"],
 			root,
 		);
 		assert.notEqual(r.status, 0);
@@ -784,10 +784,10 @@ describe("stable migration and flags", () => {
 describe("--commit dry-run git operations", () => {
 	it("logs commit and tags for patch without writing", () => {
 		const root = createRepo({
-			branch: "release/26.05",
-			currentVersion: "26.5.0",
-			meteorVersion: "26.5.0",
-			lernaVersion: "26.5.0",
+			branch: "release/26.06",
+			currentVersion: "26.6.0",
+			meteorVersion: "26.6.0",
+			lernaVersion: "26.6.0",
 			extraCommits: 1,
 		});
 		const r = run(
@@ -797,9 +797,9 @@ describe("--commit dry-run git operations", () => {
 		assert.equal(r.status, 0);
 		const out = r.stdout + r.stderr;
 		assert.match(out, /\[dry-run\] git commit/);
-		assert.match(out, /\[dry-run\] git tag v26\.05\.01/);
+		assert.match(out, /\[dry-run\] git tag v26\.06\.01/);
 		assert.match(out, /\[dry-run\] git tag -f latest HEAD/);
-		assert.equal(readVersion(root), "26.5.0");
+		assert.equal(readVersion(root), "26.6.0");
 	});
 
 	it("logs nightly tag-only flow when versions already match", () => {

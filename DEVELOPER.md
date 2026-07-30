@@ -159,7 +159,31 @@ It is recommended to use `projection` instead, as it is functionally identical b
 
 This repository, Sofie Core, does not follow semver. We believe that semver does not make sense for Sofie Core as there are so many moving parts that a majority of releases could be considered breaking in some way.
 
-Instead of semver, the Major number gets incremented whenever we feel like Sofie has evolved enough to warrant the change. The minor number gets incremented for each iteration of the development cycle, with the digit matching the cycle number. The patch number gets incremented for patch releases as expected.
+Instead of semver we use CalVer. The minor number gets incremented for calendar quarter (`03` / `06` / `09` / `12`). The patch number gets incremented for patch releases as expected.
+
+| Kind           | Git tag (examples)                        | `package.json` / DB version |
+| -------------- | ----------------------------------------- | --------------------------- |
+| Stable / patch | `v26.03`, `v26.03.02`                     | `26.3.0`, `26.3.2`          |
+| Nightly        | `0.0.0-nightly.260602`, rolling `nightly` | `0.0.0-nightly.260602`      |
+
+**Release lines** (`release/YY.MM`):
+
+| Calendar months | Version  |
+| --------------- | -------- |
+| Jan–Mar         | `vYY.03` |
+| Apr–Jun         | `vYY.06` |
+| Jul–Sep         | `vYY.09` |
+| Oct–Dec         | `vYY.12` |
+
+**Quarterly cut** ([`q-release.yml`](.github/workflows/q-release.yml)): runs on **1 Jan / 1 Apr / 1 Jul / 1 Oct** (first day of the _next_ quarter). The version date is Oslo **yesterday**, so last-day-of-quarter commits still land in that version (e.g. 1 Apr cuts `release/26.03`).
+
+**Patches:** merge to `release/**` → [`hotfix-patch.yml`](.github/workflows/hotfix-patch.yml).
+
+**Nightly:** daily on `main` → [`nightly.yml`](.github/workflows/nightly.yml).
+
+All version forms go through [`scripts/version-sync.mjs`](scripts/version-sync.mjs). You should prefer to use immutable tags in production (`v26.03.02`); avoid floating `latest` / `nightly`.
+
+Hotfixes: PR to `main` and to the active `release/YY.MM` (or justify single-branch in the PR).
 
 The version numbers of the `blueprints-integration` and `server-core-integration` libraries are tied to this, and as such they also do not follow semver. In future these may be decoupled.
 The api of `server-core-integration` is pretty stable and rarely undergoes any breaking changes, so is ok to be mismatched.

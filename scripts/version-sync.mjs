@@ -122,12 +122,12 @@ Options:
   --print-tag         Print git tag name and exit (local/debug)
   --print-version     Print file/npm version string and exit (local/debug)
 
-Release line from calendar month (vYY.MM.PP tags, release/YY.MM branches):
-  Nov–Dec     → vYY.11.PP
-  Jan         → v(YY−1).11.PP
-  Feb–Apr     → vYY.02.PP
-  May–Jul     → vYY.05.PP
-  Aug–Oct     → vYY.08.PP
+Release line from calendar quarter (vYY.MM.PP tags, release/YY.MM branches):
+  Jan–Mar     → vYY.03.PP
+  Apr–Jun     → vYY.06.PP
+  Jul–Sep     → vYY.09.PP
+  Oct–Dec     → vYY.12.PP
+  Cuts run on 1 Jan/Apr/Jul/Oct (next quarter day 1), versioning from the prior day.
 `);
 }
 
@@ -231,28 +231,25 @@ function pad2(n) {
 
 export function getBaseReleaseFromDate({ yy, mm }) {
 	switch (mm) {
+		case 1:
 		case 2:
 		case 3:
-		case 4:
-			mm = 2;
+			mm = 3;
 			break;
+		case 4:
 		case 5:
 		case 6:
-		case 7:
-			mm = 5;
+			mm = 6;
 			break;
+		case 7:
 		case 8:
 		case 9:
-		case 10:
-			mm = 8;
+			mm = 9;
 			break;
+		case 10:
 		case 11:
 		case 12:
-			mm = 11;
-			break;
-		case 1:
-			yy--;
-			mm = 11;
+			mm = 12;
 			break;
 		default:
 			break;

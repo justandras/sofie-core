@@ -16,11 +16,13 @@ The release workflows authenticate as a GitHub App via [`.github/actions/app-git
 
 ## Workflows
 
-| Workflow | Trigger | Environment |
-|----------|---------|-------------|
-| `q-release.yml` | Quarterly cron / manual | `release-automatic` (cron) or `production-release` (manual) |
-| `nightly.yml` | Daily cron / manual | `release-automatic` (cron) or `production-release` (manual) |
-| `hotfix-patch.yml` | Push to `release/**` (filtered paths) | — |
+| Workflow           | Trigger                                                     | Environment                                                 |
+| ------------------ | ----------------------------------------------------------- | ----------------------------------------------------------- |
+| `q-release.yml`    | 1 Jan/Apr/Jul/Oct cron (UTC); version date = Oslo yesterday | `release-automatic` (cron) or `production-release` (manual) |
+| `nightly.yml`      | Daily cron / manual                                         | `release-automatic` (cron) or `production-release` (manual) |
+| `hotfix-patch.yml` | Push to `release/**` (filtered paths)                       | —                                                           |
+
+**Quarterly cadence:** cycles are `03` / `06` / `09` / `12`. Cut on the first day of the _next_ quarter so last-day-of-quarter work is included (e.g. 1 Apr → `release/26.03`).
 
 Create GitHub environments before first use:
 
