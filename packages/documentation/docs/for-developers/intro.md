@@ -11,5 +11,6 @@ A read-through of the [Concepts & Architectures](../user-guide/concepts-and-arch
 
 - [Libraries](libraries.md)
 - [Contribution Guidelines](contribution-guidelines.md)
+- [Version Numbering](version-numbering.md)
 - [For Blueprint Developers](for-blueprint-developers/intro.md)
 - [API Documentation](api-documentation.md)

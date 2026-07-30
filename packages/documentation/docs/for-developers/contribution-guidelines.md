@@ -51,9 +51,11 @@ It will be very helpful if your RFC includes specific use cases that you are fac
 
 Via the RFC process, we're looking to maximize involvement from various stakeholders, so you probably don't need to come up with a very detailed design of your proposed change or feature in the RFC. An end-user oriented description will be most valuable in creating a constructive dialogue, but don't shy away from also adding a more technical description, if you find that will convey your ideas better.
 
-### Base contributions on the in-development branch
+### Base contributions on the right branch
 
-In order to facilitate merging, we ask that contributions are based on the latest (at the time of the pull request) _in-development_ branch (often named `release*`).
+New features and most work should target **`main`**.
+
+Bugfixes for a stable line should follow the double-PR rule: one PR to `main` and one to the active `release/YY.MM` branch (see [Version Numbering](version-numbering.md)).
 
 See **CONTRIBUTING.md** in each official repository for details on which branch to use as a base for contributions.
 
