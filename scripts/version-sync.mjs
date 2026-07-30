@@ -10,8 +10,8 @@
  *
  * Mode is inferred from the current branch when omitted: main → nightly,
  * release/YY.MM → patch. CI release-cut passes --mode stable explicitly.
- * --commit on main nightly: bump versions (no X_X_X seal), commit if needed, tag. Stable/patch seal + commit.
- * Rolling git tags: latest (stable/patch), nightly (scheduled main only). Moved with git tag -f.
+ * --commit on nightly: bump versions (no X_X_X seal), commit if needed, tag.
+ * Rolling git tags: latest (stable/patch), nightly (main nightlies only). Moved with git tag -f.
  */
 
 import { execFileSync, execSync } from "node:child_process";
@@ -116,7 +116,8 @@ Options:
   --timezone TZ       Used when inferring date (default Europe/Oslo)
   --dry-run           Print actions without writing files
   --check             Exit 1 if repo would change (for CI); does not write files
-  --commit            Stable/patch: version bump, seal migrations, tag, move latest. Nightly on main: bump + tag.
+  --commit            Stable/patch: version bump, seal migrations, tag, move latest.
+                      Nightly: bump + tag; move floating nightly only on main.
   --github-output     Run fully; on success one JSON line via console.log (info buffered; errors on failure)
   --print-branch      Print release branch name and exit (local/debug)
   --print-tag         Print git tag name and exit (local/debug)
@@ -636,7 +637,7 @@ function resolveTarget(opts) {
 		log(`resolved nightly fileVersion=${fileVersion}`);
 		if (!scheduledNightly) {
 			log(
-				`branch-specific nightly (not on main); version sync only, not eligible for --commit`,
+				`branch-specific nightly (not on main); immutable tag only (floating nightly not moved)`,
 			);
 		}
 		return {
@@ -644,7 +645,8 @@ function resolveTarget(opts) {
 			marketing: fileVersion.replace("0.0.0-", "").replace(".", ""),
 			fileVersion,
 			branch,
-			floatingTag: "nightly",
+			// Floating tag only for canonical main nightlies (cron or manual on main)
+			floatingTag: scheduledNightly ? "nightly" : "",
 			scheduledNightly,
 		};
 	}
@@ -872,24 +874,40 @@ function headHasReleaseTag(target) {
 	return false;
 }
 
-function getLatestNightlyTag() {
+function escapeRegExp(value) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function listNightlyTags() {
 	try {
-		const tags = execSync('git tag -l "0.0.0-nightly.*" --sort=-v:refname', {
+		return execSync('git tag -l "0.0.0-nightly.*" --sort=-creatordate', {
 			cwd: REPO_ROOT,
 			encoding: "utf8",
 		})
 			.trim()
 			.split("\n")
 			.filter(Boolean);
-		return tags[0] ?? null;
 	} catch {
-		return null;
+		return [];
 	}
+}
+
+/** Latest nightly tag for this line: plain date on main, branch-suffixed off main. */
+function getLatestNightlyTag(branch) {
+	const tags = listNightlyTags();
+	if (!branch || branch === "main") {
+		return tags.find((t) => /^0\.0\.0-nightly\.\d{6}$/.test(t)) ?? null;
+	}
+	const safeBranch = branch.replace(/[^a-zA-Z0-9._-]/g, "-");
+	const re = new RegExp(
+		`^0\\.0\\.0-nightly\\.\\d{6}-${escapeRegExp(safeBranch)}-[0-9a-f]+$`,
+	);
+	return tags.find((t) => re.test(t)) ?? null;
 }
 
 function previousReleaseTagForTarget(target) {
 	if (target.mode === "nightly") {
-		return getLatestNightlyTag();
+		return getLatestNightlyTag(target.branch);
 	}
 	if (target.release) {
 		return getLatestTagForMarketing(
@@ -1153,12 +1171,6 @@ function main() {
 		log(`release branch name: ${releaseBranchName(target.release)}`);
 	}
 
-	if (opts.commit && target.mode === "nightly" && !isScheduledNightly(target)) {
-		throw new Error(
-			`--commit is only valid for scheduled nightly releases on main (got ${target.fileVersion} on ${target.branch ?? "(unknown)"})`,
-		);
-	}
-
 	let skipped = false;
 
 	if (opts.commit && shouldSkipRelease(target)) {
@@ -1178,7 +1190,7 @@ function main() {
 		if (opts.commit) {
 			if (changed) {
 				commitAndTag(target, opts.dryRun);
-			} else if (isScheduledNightly(target)) {
+			} else if (target.mode === "nightly") {
 				tagVersionOnHead(target, opts.dryRun);
 			} else {
 				log("no version file changes to commit");

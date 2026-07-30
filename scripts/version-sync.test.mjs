@@ -564,14 +564,58 @@ describe("nightly mode", () => {
 		assert.match(r.stderr, /Nightly versions require/);
 	});
 
-	it("rejects --commit on non-main nightly", () => {
-		const root = createRepo({ branch: "release/26.06" });
+	it("allows --commit dry-run on branch nightly without floating tag", () => {
+		const root = createRepo({ branch: "feature/x", extraCommits: 1 });
 		const r = run(
-			["--mode", "nightly", "--date", "260604", "--commit", "--dry-run"],
+			[
+				"--mode",
+				"nightly",
+				"--date",
+				"260604",
+				"--commit",
+				"--dry-run",
+				"--github-output",
+			],
 			root,
 		);
-		assert.notEqual(r.status, 0);
-		assert.match(r.stderr, /--commit is only valid for scheduled nightly/);
+		assert.equal(r.status, 0, r.stderr);
+		const payload = JSON.parse(r.stdout.trim());
+		assert.equal(payload.mode, "nightly");
+		assert.match(payload.tag, /^0\.0\.0-nightly\.260604-feature-x-[0-9a-f]+$/);
+		assert.equal(payload.floatingTag, "");
+		assert.equal(payload.branch, "feature/x");
+		assert.equal(payload.skipped, false);
+	});
+
+	it("ignores main nightly tags when skipping branch nightlies", () => {
+		const root = createRepo({
+			tags: ["0.0.0-nightly.260603"],
+		});
+		execFileSync("git", ["checkout", "-b", "feature/x"], {
+			cwd: root,
+			stdio: "pipe",
+		});
+		fs.appendFileSync(path.join(root, "README"), "feature work\n");
+		execSync("git add README", { cwd: root, stdio: "pipe" });
+		execSync('git commit -m "feature work"', { cwd: root, stdio: "pipe" });
+
+		const r = run(
+			[
+				"--mode",
+				"nightly",
+				"--date",
+				"260604",
+				"--commit",
+				"--dry-run",
+				"--github-output",
+			],
+			root,
+		);
+		assert.equal(r.status, 0, r.stderr);
+		const payload = JSON.parse(r.stdout.trim());
+		assert.equal(payload.skipped, false);
+		assert.match(payload.tag, /^0\.0\.0-nightly\.260604-feature-x-/);
+		assert.equal(payload.floatingTag, "");
 	});
 });
 

@@ -157,8 +157,12 @@ It is recommended to use `projection` instead, as it is functionally identical b
 
 ### Version-Numbering Scheme
 
-Documented in the Sofie docs: **[Version Numbering](https://sofie-automation.github.io/sofie-core/docs/for-developers/version-numbering)**  
-(source: [`packages/documentation/docs/for-developers/version-numbering.md`](packages/documentation/docs/for-developers/version-numbering.md)).
+Documented in the Sofie docs:
+
+- **[Version Numbering](https://sofie-automation.github.io/sofie-core/docs/for-developers/version-numbering)**  
+  (source: [`packages/documentation/docs/for-developers/version-numbering.md`](packages/documentation/docs/for-developers/version-numbering.md))
+- **[Release Automation Setup](https://sofie-automation.github.io/sofie-core/docs/for-developers/release-automation-setup)** (GitHub App, Environments, branch protection, Pages)  
+  (source: [`packages/documentation/docs/for-developers/release-automation-setup.md`](packages/documentation/docs/for-developers/release-automation-setup.md))
 
 ### Glossary
 

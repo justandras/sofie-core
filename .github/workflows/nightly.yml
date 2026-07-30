@@ -5,12 +5,18 @@ on:
     # 23:00 UTC ≈ midnight Europe/Oslo (standard time)
     - cron: "0 23 * * *"
   workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to cut a nightly from (main moves floating nightly; other branches do not)
+        required: true
+        default: main
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: nightly-main
+  group: nightly-${{ github.event_name == 'schedule' && 'main' || inputs.branch }}
   cancel-in-progress: false
 
 jobs:
@@ -18,11 +24,23 @@ jobs:
     name: Nightly version and tag
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ github.event_name == 'workflow_dispatch' && 'production-release' || 'release-automatic' }}
+    # Cron / manual main: gated Environments. Feature-branch nightlies: ungated.
+    environment: ${{ github.event_name == 'schedule' && 'release-automatic' || ((inputs.branch == 'main' || inputs.branch == 'refs/heads/main') && 'production-release' || 'release-development') }}
     steps:
+      - name: Resolve target branch
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "branch=main" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH="${{ inputs.branch }}"
+            BRANCH="${BRANCH#refs/heads/}"
+            echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          ref: main
+          ref: ${{ steps.target.outputs.branch }}
           fetch-depth: 0
 
       - name: Authenticate as GitHub App
@@ -61,22 +79,28 @@ jobs:
           RESULT=$(tail -1 "$OUTPUT_FILE")
           echo "$RESULT" | jq -e . >/dev/null
           echo "tag=$(echo "$RESULT" | jq -r .tag)" >> "$GITHUB_OUTPUT"
-          echo "floatingTag=$(echo "$RESULT" | jq -r .floatingTag)" >> "$GITHUB_OUTPUT"
+          echo "floatingTag=$(echo "$RESULT" | jq -r '.floatingTag // empty')" >> "$GITHUB_OUTPUT"
           echo "skipped=$(echo "$RESULT" | jq -r .skipped)" >> "$GITHUB_OUTPUT"
+          echo "branch=$(echo "$RESULT" | jq -r .branch)" >> "$GITHUB_OUTPUT"
           echo "json<<EOF" >> "$GITHUB_OUTPUT"
           echo "$RESULT" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Push main and tags
+      - name: Push branch and tags
         if: steps.sync.outputs.skipped != 'true' && steps.sync.outputs.tag != ''
         env:
           GH_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          BRANCH="${{ steps.sync.outputs.branch }}"
           TAG="${{ steps.sync.outputs.tag }}"
           FLOATING="${{ steps.sync.outputs.floatingTag }}"
-          git push origin main
-          git push origin "$TAG" "+${FLOATING}"
+          git push origin "HEAD:${BRANCH}"
+          if [ -n "$FLOATING" ] && [ "$FLOATING" != "null" ]; then
+            git push origin "$TAG" "+${FLOATING}"
+          else
+            git push origin "$TAG"
+          fi
 
       - name: Summary
         if: always()
@@ -85,4 +109,7 @@ jobs:
             echo "Skipped: nothing new to release (${{ steps.sync.outputs.json }})" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Nightly release ${{ steps.sync.outputs.json }}" >> "$GITHUB_STEP_SUMMARY"
+            if [ -z "${{ steps.sync.outputs.floatingTag }}" ] || [ "${{ steps.sync.outputs.floatingTag }}" = "null" ]; then
+              echo "Floating \`nightly\` tag was not moved (non-main branch)." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
