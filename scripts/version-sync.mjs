@@ -906,25 +906,38 @@ function previousReleaseTagForTarget(target) {
 	return null;
 }
 
+/**
+ * Commits on HEAD since `tag`, excluding automated nightly version bumps.
+ * A calendar date change alone must not force a new nightly.
+ */
 function commitCountSinceTag(tag) {
 	assertValidGitRef(tag);
-	const count = execFileSync("git", ["rev-list", "--count", `${tag}..HEAD`], {
-		cwd: REPO_ROOT,
-		encoding: "utf8",
-	}).trim();
+	const count = execFileSync(
+		"git",
+		[
+			"rev-list",
+			"--count",
+			`${tag}..HEAD`,
+			"--invert-grep",
+			"--grep=^chore(nightly):",
+		],
+		{
+			cwd: REPO_ROOT,
+			encoding: "utf8",
+		},
+	).trim();
 	return parseInt(count, 10);
 }
 
-/** True when HEAD is already a release or has no commits since the prior release tag. */
+/**
+ * True when there is nothing new to release.
+ * Nightly: skip unless there are non-release commits since the previous nightly tag
+ * (do not release solely because the calendar date / version string advanced).
+ */
 function shouldSkipRelease(target) {
 	if (gitTagExists(gitTagFromTarget(target))) {
 		log(`target tag ${gitTagFromTarget(target)} already exists`);
 		return true;
-	}
-
-	if (isScheduledNightly(target) && !versionsAtTarget(target)) {
-		log("nightly version files not at target; release required");
-		return false;
 	}
 
 	if (headHasReleaseTag(target)) {
@@ -938,9 +951,15 @@ function shouldSkipRelease(target) {
 	}
 
 	const commitsSince = commitCountSinceTag(previous);
-	log(`${commitsSince} commit(s) since ${previous}`);
+	log(
+		`${commitsSince} non-nightly commit(s) since ${previous}${
+			isScheduledNightly(target) && !versionsAtTarget(target)
+				? " (version date lag ignored until there is new work)"
+				: ""
+		}`,
+	);
 	if (commitsSince === 0) {
-		log("no new commits since previous release tag");
+		log("no new developer commits since previous release tag; skipping");
 		return true;
 	}
 

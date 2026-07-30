@@ -675,7 +675,7 @@ describe("release skip and tag scenarios", () => {
 		assert.equal(payload.skipped, true);
 	});
 
-	it("does not skip nightly when calendar date advances but versions lag", () => {
+	it("skips nightly when calendar date advances but there are no new commits", () => {
 		const root = createRepo({
 			tags: ["0.0.0-nightly.260603"],
 			currentVersion: "0.0.0-nightly.260603",
@@ -696,7 +696,7 @@ describe("release skip and tag scenarios", () => {
 		);
 		assert.equal(r.status, 0);
 		const payload = JSON.parse(r.stdout.trim());
-		assert.equal(payload.skipped, false);
+		assert.equal(payload.skipped, true);
 	});
 
 	it("does not skip nightly with new commits when versions lag behind target date", () => {
