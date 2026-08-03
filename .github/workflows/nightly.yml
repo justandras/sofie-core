@@ -5,18 +5,13 @@ on:
     # 23:00 UTC ≈ midnight Europe/Oslo (standard time)
     - cron: "0 23 * * *"
   workflow_dispatch:
-    inputs:
-      branch:
-        description: Branch to cut a nightly from (main moves floating nightly; other branches do not)
-        required: true
-        default: main
-        type: string
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
-  group: nightly-${{ github.event_name == 'schedule' && 'main' || inputs.branch }}
+  group: nightly-${{ github.event_name == 'schedule' && 'main' || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -25,25 +20,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Cron / manual main: gated Environments. Feature-branch nightlies: ungated.
-    environment: ${{ github.event_name == 'schedule' && 'release-automatic' || ((inputs.branch == 'main' || inputs.branch == 'refs/heads/main') && 'production-release' || 'release-development') }}
+    # Manual runs always use the branch selected in the Actions UI ("Use workflow from").
+    environment: ${{ github.event_name == 'schedule' && 'release-automatic' || (github.ref_name == 'main' && 'production-release' || 'release-development') }}
     steps:
       - name: Resolve target branch
         id: target
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo "branch=main" >> "$GITHUB_OUTPUT"
+            echo "is_main=true" >> "$GITHUB_OUTPUT"
           else
-            BRANCH="${{ inputs.branch }}"
-            BRANCH="${BRANCH#refs/heads/}"
+            BRANCH="${{ github.ref_name }}"
             echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+            if [ "$BRANCH" = "main" ]; then
+              echo "is_main=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "is_main=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        if: steps.target.outputs.is_main == 'true'
         with:
           ref: ${{ steps.target.outputs.branch }}
           fetch-depth: 0
 
       - name: Authenticate as GitHub App
+        if: steps.target.outputs.is_main == 'true'
         id: auth
         uses: ./.github/actions/app-git-auth
         with:
@@ -51,18 +54,22 @@ jobs:
           app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        if: steps.target.outputs.is_main == 'true'
         with:
           node-version-file: ".node-version"
 
       - name: Install packages dependencies
+        if: steps.target.outputs.is_main == 'true'
         run: corepack enable && yarn --cwd packages install --immutable
 
       - name: Resolve nightly date
+        if: steps.target.outputs.is_main == 'true'
         id: date
         run: |
           echo "yymmdd=$(TZ=Europe/Oslo date +%y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Version sync and tag
+        if: steps.target.outputs.is_main == 'true'
         id: sync
         run: |
           set -euo pipefail
@@ -86,30 +93,34 @@ jobs:
           echo "$RESULT" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Push branch and tags
-        if: steps.sync.outputs.skipped != 'true' && steps.sync.outputs.tag != ''
+      - name: Push main and tags
+        if: steps.target.outputs.is_main == 'true' && steps.sync.outputs.skipped != 'true' && steps.sync.outputs.tag != ''
         env:
           GH_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          BRANCH="${{ steps.sync.outputs.branch }}"
           TAG="${{ steps.sync.outputs.tag }}"
           FLOATING="${{ steps.sync.outputs.floatingTag }}"
-          git push origin "HEAD:${BRANCH}"
-          if [ -n "$FLOATING" ] && [ "$FLOATING" != "null" ]; then
-            git push origin "$TAG" "+${FLOATING}"
-          else
-            git push origin "$TAG"
-          fi
+          git push origin main
+          git push origin "$TAG" "+${FLOATING}"
+
+      - name: Publish artifacts from feature branch
+        if: steps.target.outputs.is_main != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.target.outputs.branch }}
+        run: |
+          set -euo pipefail
+          # Same ref as this dispatch — no cross-branch retargeting.
+          gh workflow run publish-libs.yml --ref "$BRANCH"
+          gh workflow run node.yaml --ref "$BRANCH"
+          echo "Triggered publish-libs.yml and node.yaml on \`$BRANCH\` (no git commit/tag)." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
-        if: always()
+        if: always() && steps.target.outputs.is_main == 'true'
         run: |
           if [ "${{ steps.sync.outputs.skipped }}" = "true" ]; then
             echo "Skipped: nothing new to release (${{ steps.sync.outputs.json }})" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Nightly release ${{ steps.sync.outputs.json }}" >> "$GITHUB_STEP_SUMMARY"
-            if [ -z "${{ steps.sync.outputs.floatingTag }}" ] || [ "${{ steps.sync.outputs.floatingTag }}" = "null" ]; then
-              echo "Floating \`nightly\` tag was not moved (non-main branch)." >> "$GITHUB_STEP_SUMMARY"
-            fi
           fi

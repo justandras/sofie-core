@@ -10,11 +10,11 @@ This repository, Sofie Core, does not follow semver. We believe that semver does
 
 Instead of semver we use CalVer. The minor number gets incremented for each calendar quarter (`03` / `06` / `09` / `12`). The patch number gets incremented for patch releases as expected.
 
-| Kind | Git tag (examples) | `package.json` / DB version |
-| ---- | ------------------ | --------------------------- |
-| Stable / patch | `v26.03`, `v26.03.02` | `26.3.0`, `26.3.2` |
-| Nightly (`main`) | `0.0.0-nightly.260602`, rolling `nightly` | `0.0.0-nightly.260602` |
-| Nightly (feature branch) | `0.0.0-nightly.260602-feature-x-abc1234` | same as tag |
+| Kind                      | Git tag (examples)                        | `package.json` / DB version                              |
+| ------------------------- | ----------------------------------------- | -------------------------------------------------------- |
+| Stable / patch            | `v26.03`, `v26.03.02`                     | `26.3.0`, `26.3.2`                                       |
+| Nightly (`main`)          | `0.0.0-nightly.260602`, rolling `nightly` | `0.0.0-nightly.260602`                                   |
+| Feature-branch test build | _(no git tag)_                            | `0.0.0-nightly.YYMMDD-<branch>-<hash>` _NPM/Docker only_ |
 
 ## Release lines (`release/YY.MM`)
 
@@ -31,7 +31,7 @@ Before creating `release/YY.MM`, the cut job snapshots docs on **`main`** with `
 
 **Patches:** merge to `release/**` → [`hotfix-patch.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/hotfix-patch.yml).
 
-**Nightly:** [`nightly.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/nightly.yml) — daily on `main` (moves floating `nightly`), or manual on any branch for test builds (`0.0.0-nightly.YYMMDD-<branch>-<hash>`, floating tag unchanged).
+**Nightly:** [`nightly.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/nightly.yml) — daily on `main` (commit, tag, move floating `nightly`), or manual dispatch from a feature branch to publish test artifacts only.
 
 All version forms go through [`scripts/version-sync.mjs`](https://github.com/Sofie-Automation/sofie-core/blob/main/scripts/version-sync.mjs). Prefer immutable tags in production (`v26.03.02`); avoid floating `latest` / `nightly`.
 

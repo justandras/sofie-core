@@ -10,8 +10,9 @@
  *
  * Mode is inferred from the current branch when omitted: main → nightly,
  * release/YY.MM → patch. CI release-cut passes --mode stable explicitly.
- * --commit on nightly: bump versions (no X_X_X seal), commit if needed, tag.
+ * --commit on main nightly: bump versions (no X_X_X seal), commit if needed, tag. Stable/patch seal + commit.
  * Rolling git tags: latest (stable/patch), nightly (main nightlies only). Moved with git tag -f.
+ * Off-main nightlies: version sync in-checkout only; no --commit (feature-branch artifact publishes do not tag).
  */
 
 import { execFileSync, execSync } from "node:child_process";
@@ -117,7 +118,7 @@ Options:
   --dry-run           Print actions without writing files
   --check             Exit 1 if repo would change (for CI); does not write files
   --commit            Stable/patch: version bump, seal migrations, tag, move latest.
-                      Nightly: bump + tag; move floating nightly only on main.
+                      Nightly: only valid on main — bump + tag + move floating nightly.
   --github-output     Run fully; on success one JSON line via console.log (info buffered; errors on failure)
   --print-branch      Print release branch name and exit (local/debug)
   --print-tag         Print git tag name and exit (local/debug)
@@ -637,7 +638,7 @@ function resolveTarget(opts) {
 		log(`resolved nightly fileVersion=${fileVersion}`);
 		if (!scheduledNightly) {
 			log(
-				`branch-specific nightly (not on main); immutable tag only (floating nightly not moved)`,
+				`branch-specific nightly (not on main); version sync only — no --commit / tags (publish artifacts without polluting the branch)`,
 			);
 		}
 		return {
@@ -1171,6 +1172,12 @@ function main() {
 		log(`release branch name: ${releaseBranchName(target.release)}`);
 	}
 
+	if (opts.commit && target.mode === "nightly" && !isScheduledNightly(target)) {
+		throw new Error(
+			`--commit is only valid for nightly releases on main (got ${target.fileVersion} on ${target.branch ?? "(unknown)"})`,
+		);
+	}
+
 	let skipped = false;
 
 	if (opts.commit && shouldSkipRelease(target)) {
@@ -1190,7 +1197,7 @@ function main() {
 		if (opts.commit) {
 			if (changed) {
 				commitAndTag(target, opts.dryRun);
-			} else if (target.mode === "nightly") {
+			} else if (isScheduledNightly(target)) {
 				tagVersionOnHead(target, opts.dryRun);
 			} else {
 				log("no version file changes to commit");

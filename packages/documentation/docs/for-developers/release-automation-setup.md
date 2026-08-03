@@ -47,11 +47,11 @@ The git author configured by `app-git-auth` is the App’s bot user (for example
 
 [`q-release.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/q-release.yml) and [`nightly.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/nightly.yml) select a GitHub [Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) based on how they were started:
 
-| Environment | Selected when | Intended protection |
-| ----------- | ------------- | ------------------- |
-| `release-automatic` | `q-release` / `nightly` on `schedule` (cron) | No required reviewers — scheduled jobs must proceed without interactive approval |
-| `production-release` | `q-release` manual dispatch, or `nightly` manual dispatch with branch `main` | Required reviewers — production cuts and canonical main nightlies wait for maintainer approval |
-| `release-development` | `nightly` manual dispatch with a non-`main` branch | No required reviewers — anyone who can run Actions can cut a branch nightly for test deployments |
+| Environment           | Selected when                                                                | Intended protection                                                                              |
+| --------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `release-automatic`   | `q-release` / `nightly` on `schedule` (cron)                                 | No required reviewers — scheduled jobs must proceed without interactive approval                 |
+| `production-release`  | `q-release` manual dispatch, or `nightly` manual dispatch with branch `main` | Required reviewers — production cuts and canonical main nightlies wait for maintainer approval   |
+| `release-development` | `nightly` manual dispatch with a non-`main` branch                           | No required reviewers — anyone who can run Actions can cut a branch nightly for test deployments |
 
 [`hotfix-patch.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/hotfix-patch.yml) does not declare an Environment. It still uses the same App credentials and is subject to the same branch rules.
 
@@ -59,12 +59,12 @@ Missing Environments cause the corresponding jobs to fail when entering that Env
 
 ### Nightly dispatch
 
-Manual `nightly` runs take a **branch** input (default `main`). Prefer starting the workflow from the default branch and setting the input to the feature branch so the workflow definition itself does not need to exist on that branch yet.
+Manual `nightly` runs use the branch selected in the Actions UI (“Use workflow from”). There is no separate branch input — the job always targets that ref (or `main` on cron).
 
-| Target branch | Environment | Floating `nightly` tag | Immutable tag form |
-| ------------- | ----------- | ---------------------- | ------------------ |
-| `main` (cron or manual) | `release-automatic` / `production-release` | Moved | `0.0.0-nightly.YYMMDD` |
-| Any other branch | `release-development` | Not moved | `0.0.0-nightly.YYMMDD-<branch>-<hash>` |
+| Target branch                  | Environment                                | Git commit / tags                                               | Artifacts                                                        |
+| ------------------------------ | ------------------------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `main` (cron or manual)        | `release-automatic` / `production-release` | Version commit; `0.0.0-nightly.YYMMDD`; move floating `nightly` | From tag / main push CI                                          |
+| Any other branch (manual only) | `release-development`                      | None                                                            | No commit, artifact tags: `0.0.0-nightly.YYMMDD-<branch>-<hash>` |
 
 ## Branch and tag rules
 
@@ -74,13 +74,12 @@ Rulesets (or classic branch protection) for `main` and `release/**` therefore in
 
 Tag behaviour used by the automation:
 
-| Tag | Mutability | Updated by |
-| --- | ---------- | ---------- |
-| `vYY.MM.PP` | Immutable once created | Stable and patch releases |
-| `0.0.0-nightly.YYMMDD` | Immutable once created | Nightly on `main` |
-| `0.0.0-nightly.YYMMDD-<branch>-<hash>` | Immutable once created | Nightly on a non-`main` branch |
-| `latest` | Floating (force-moved) | Stable and patch releases |
-| `nightly` | Floating (force-moved) | Nightly on `main` only (cron or approved manual) |
+| Tag                    | Mutability             | Updated by                                       |
+| ---------------------- | ---------------------- | ------------------------------------------------ |
+| `vYY.MM.PP`            | Immutable once created | Stable and patch releases                        |
+| `0.0.0-nightly.YYMMDD` | Immutable once created | Nightly on `main`                                |
+| `latest`               | Floating (force-moved) | Stable and patch releases                        |
+| `nightly`              | Floating (force-moved) | Nightly on `main` only (cron or approved manual) |
 
 Repository rules that forbid the App from creating or updating tags will break floating-tag updates even when branch pushes succeed.
 
@@ -96,12 +95,12 @@ Quarterly release cuts snapshot the developer documentation on `main` with Docus
 
 ## Workflow dependencies on this configuration
 
-| Workflow           | Trigger                                                                         | Uses Environments | Uses App auth                  | Pushes                                                  |
-| ------------------ | ------------------------------------------------------------------------------- | ----------------- | ------------------------------ | ------------------------------------------------------- |
-| `nightly.yml` | Daily cron (~23:00 UTC) or `workflow_dispatch` (branch input) | Yes | Yes | Version commit on the target branch; nightly tags (`nightly` floating tag only on `main`) |
-| `q-release.yml`    | Quarterly cron (1 Jan / 1 Apr / 1 Jul / 1 Oct UTC) or `workflow_dispatch`       | Yes               | Yes                            | Docs snapshot on `main`; `release/YY.MM`; stable tags   |
-| `hotfix-patch.yml` | Push to `release/**` (path-filtered); skips the App bot and `[skip ci]` commits | No                | Yes                            | Patch version commit on the release branch; stable tags |
-| `deploy-docs.yml`  | Push to `main`                                                                  | `github-pages`    | Default token for Pages deploy | Publishes the documentation site                        |
+| Workflow           | Trigger                                                                         | Uses Environments | Uses App auth                  | Pushes                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------- | ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `nightly.yml`      | Daily cron (~23:00 UTC) or `workflow_dispatch`                                  | Yes               | App on `main` only             | `main`: version commit + nightly tags; other branches: dispatch `publish-libs` / `node.yaml` on the same ref |
+| `q-release.yml`    | Quarterly cron (1 Jan / 1 Apr / 1 Jul / 1 Oct UTC) or `workflow_dispatch`       | Yes               | Yes                            | Docs snapshot on `main`; `release/YY.MM`; stable tags                                                        |
+| `hotfix-patch.yml` | Push to `release/**` (path-filtered); skips the App bot and `[skip ci]` commits | No                | Yes                            | Patch version commit on the release branch; stable tags                                                      |
+| `deploy-docs.yml`  | Push to `main`                                                                  | `github-pages`    | Default token for Pages deploy | Publishes the documentation site                                                                             |
 
 `hotfix-patch` runs `scripts/version-sync.mjs` from **`main`** against a checkout of the triggering `release/**` ref, so patch bumps always use the sync script as it exists on `main`.
 

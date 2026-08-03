@@ -70,13 +70,19 @@ function createRepo({
 	);
 
 	execSync("git init -b main", { cwd: root, stdio: "pipe" });
-	execSync("git config user.email test@sofie.test", { cwd: root, stdio: "pipe" });
+	execSync("git config user.email test@sofie.test", {
+		cwd: root,
+		stdio: "pipe",
+	});
 	execSync("git config user.name Sofie Test", { cwd: root, stdio: "pipe" });
 	execSync("git add -A", { cwd: root, stdio: "pipe" });
 	execSync('git commit -m "init"', { cwd: root, stdio: "pipe" });
 
 	if (branch !== "main") {
-		execFileSync("git", ["checkout", "-b", branch], { cwd: root, stdio: "pipe" });
+		execFileSync("git", ["checkout", "-b", branch], {
+			cwd: root,
+			stdio: "pipe",
+		});
 	}
 
 	for (const tag of tags) {
@@ -145,7 +151,11 @@ describe("release line calendar", () => {
 
 describe("version string helpers", () => {
 	it("parses YYMM and YYMMDD dates", () => {
-		assert.deepEqual(getDateFromDateString("2605"), { yy: 26, mm: 5, dd: undefined });
+		assert.deepEqual(getDateFromDateString("2605"), {
+			yy: 26,
+			mm: 5,
+			dd: undefined,
+		});
 		assert.deepEqual(getDateFromDateString("260604"), { yy: 26, mm: 6, dd: 4 });
 	});
 
@@ -289,7 +299,12 @@ describe("parseArgs", () => {
 	it("rejects --github-output combined with --print-tag", () => {
 		assert.throws(
 			() =>
-				testing.parseArgs(["--mode", "stable", "--github-output", "--print-tag"]),
+				testing.parseArgs([
+					"--mode",
+					"stable",
+					"--github-output",
+					"--print-tag",
+				]),
 			/--github-output cannot be combined/,
 		);
 	});
@@ -404,7 +419,10 @@ describe("CLI print flags", () => {
 
 	it("--print-branch rejects nightly", () => {
 		const root = createRepo();
-		const r = run(["--mode", "nightly", "--date", "260604", "--print-branch"], root);
+		const r = run(
+			["--mode", "nightly", "--date", "260604", "--print-branch"],
+			root,
+		);
 		assert.notEqual(r.status, 0);
 		assert.match(r.stderr, /--print-branch is not available for nightly/);
 	});
@@ -436,10 +454,7 @@ describe("--dry-run and --check", () => {
 	it("--dry-run does not write version files", () => {
 		const root = createRepo({ currentVersion: "26.3.0" });
 		const before = readVersion(root);
-		const r = run(
-			["--mode", "stable", "--date", "2606", "--dry-run"],
-			root,
-		);
+		const r = run(["--mode", "stable", "--date", "2606", "--dry-run"], root);
 		assert.equal(r.status, 0);
 		assert.equal(readVersion(root), before);
 		assert.match(r.stdout + r.stderr, /dry-run complete/);
@@ -505,10 +520,7 @@ describe("patch resolution", () => {
 			branch: "release/26.06",
 			currentVersion: "26.6.9",
 		});
-		const r = run(
-			["--mode", "patch", "--patch", "4", "--print-tag"],
-			root,
-		);
+		const r = run(["--mode", "patch", "--patch", "4", "--print-tag"], root);
 		assert.equal(r.stdout.trim(), "v26.06.04");
 	});
 
@@ -527,10 +539,7 @@ describe("patch resolution", () => {
 			branch: "release/26.06",
 			currentVersion: "26.6.2",
 		});
-		const r = run(
-			["--mode", "stable", "--patch", "0", "--print-tag"],
-			root,
-		);
+		const r = run(["--mode", "stable", "--patch", "0", "--print-tag"], root);
 		assert.equal(r.status, 0);
 		assert.equal(r.stdout.trim(), "v26.06");
 	});
@@ -554,68 +563,46 @@ describe("nightly mode", () => {
 			root,
 		);
 		assert.equal(r.status, 0);
-		assert.match(r.stdout.trim(), /^0\.0\.0-nightly\.260604-release-26\.06-[0-9a-f]+$/);
+		assert.match(
+			r.stdout.trim(),
+			/^0\.0\.0-nightly\.260604-release-26\.06-[0-9a-f]+$/,
+		);
 	});
 
 	it("rejects nightly without day when date is YYMM only", () => {
 		const root = createRepo();
-		const r = run(["--mode", "nightly", "--date", "2606", "--print-version"], root);
+		const r = run(
+			["--mode", "nightly", "--date", "2606", "--print-version"],
+			root,
+		);
 		assert.notEqual(r.status, 0);
 		assert.match(r.stderr, /Nightly versions require/);
 	});
 
-	it("allows --commit dry-run on branch nightly without floating tag", () => {
+	it("rejects --commit on non-main nightly", () => {
 		const root = createRepo({ branch: "feature/x", extraCommits: 1 });
 		const r = run(
-			[
-				"--mode",
-				"nightly",
-				"--date",
-				"260604",
-				"--commit",
-				"--dry-run",
-				"--github-output",
-			],
+			["--mode", "nightly", "--date", "260604", "--commit", "--dry-run"],
 			root,
 		);
-		assert.equal(r.status, 0, r.stderr);
-		const payload = JSON.parse(r.stdout.trim());
-		assert.equal(payload.mode, "nightly");
-		assert.match(payload.tag, /^0\.0\.0-nightly\.260604-feature-x-[0-9a-f]+$/);
-		assert.equal(payload.floatingTag, "");
-		assert.equal(payload.branch, "feature/x");
-		assert.equal(payload.skipped, false);
+		assert.notEqual(r.status, 0);
+		assert.match(
+			r.stderr,
+			/--commit is only valid for nightly releases on main/,
+		);
 	});
 
-	it("ignores main nightly tags when skipping branch nightlies", () => {
-		const root = createRepo({
-			tags: ["0.0.0-nightly.260603"],
-		});
-		execFileSync("git", ["checkout", "-b", "feature/x"], {
-			cwd: root,
-			stdio: "pipe",
-		});
-		fs.appendFileSync(path.join(root, "README"), "feature work\n");
-		execSync("git add README", { cwd: root, stdio: "pipe" });
-		execSync('git commit -m "feature work"', { cwd: root, stdio: "pipe" });
-
+	it("prints branch-scoped version without committing", () => {
+		const root = createRepo({ branch: "feature/x" });
 		const r = run(
-			[
-				"--mode",
-				"nightly",
-				"--date",
-				"260604",
-				"--commit",
-				"--dry-run",
-				"--github-output",
-			],
+			["--mode", "nightly", "--date", "260604", "--print-version"],
 			root,
 		);
 		assert.equal(r.status, 0, r.stderr);
-		const payload = JSON.parse(r.stdout.trim());
-		assert.equal(payload.skipped, false);
-		assert.match(payload.tag, /^0\.0\.0-nightly\.260604-feature-x-/);
-		assert.equal(payload.floatingTag, "");
+		assert.match(
+			r.stdout.trim(),
+			/^0\.0\.0-nightly\.260604-feature-x-[0-9a-f]+$/,
+		);
 	});
 });
 
@@ -623,14 +610,7 @@ describe("--github-output", () => {
 	it("prints only JSON on success", () => {
 		const root = createRepo();
 		const r = run(
-			[
-				"--mode",
-				"nightly",
-				"--date",
-				"260604",
-				"--dry-run",
-				"--github-output",
-			],
+			["--mode", "nightly", "--date", "260604", "--dry-run", "--github-output"],
 			root,
 		);
 		assert.equal(r.status, 0);
@@ -775,10 +755,7 @@ describe("stable migration and flags", () => {
 			branch: "main",
 			withMigrationStep: true,
 		});
-		const r = run(
-			["--mode", "stable", "--date", "2606", "--dry-run"],
-			root,
-		);
+		const r = run(["--mode", "stable", "--date", "2606", "--dry-run"], root);
 		assert.equal(r.status, 0);
 		assert.match(r.stdout + r.stderr, /rotating X_X_X\.ts/);
 		assert.match(r.stdout + r.stderr, /would rename X_X_X/);
@@ -806,20 +783,24 @@ describe("stable migration and flags", () => {
 
 	it("rejects --commit when VERSION_SYNC_ROOT is set without allow flag", () => {
 		const root = createRepo({ branch: "release/26.06" });
-		const r = spawnSync(process.execPath, [SCRIPT, "--mode", "patch", "--commit", "--dry-run"], {
-			env: { ...process.env, VERSION_SYNC_ROOT: root },
-			encoding: "utf8",
-		});
+		const r = spawnSync(
+			process.execPath,
+			[SCRIPT, "--mode", "patch", "--commit", "--dry-run"],
+			{
+				env: { ...process.env, VERSION_SYNC_ROOT: root },
+				encoding: "utf8",
+			},
+		);
 		assert.notEqual(r.status, 0);
-		assert.match(r.stderr, /--commit is not allowed when VERSION_SYNC_ROOT is set/);
+		assert.match(
+			r.stderr,
+			/--commit is not allowed when VERSION_SYNC_ROOT is set/,
+		);
 	});
 
 	it("rejects --patch on stable when not zero", () => {
 		const root = createRepo();
-		const r = run(
-			["--mode", "stable", "--date", "2606", "--patch", "2"],
-			root,
-		);
+		const r = run(["--mode", "stable", "--date", "2606", "--patch", "2"], root);
 		assert.notEqual(r.status, 0);
 		assert.match(r.stderr, /--patch requires --mode patch/);
 	});
@@ -834,10 +815,7 @@ describe("--commit dry-run git operations", () => {
 			lernaVersion: "26.6.0",
 			extraCommits: 1,
 		});
-		const r = run(
-			["--mode", "patch", "--commit", "--dry-run"],
-			root,
-		);
+		const r = run(["--mode", "patch", "--commit", "--dry-run"], root);
 		assert.equal(r.status, 0);
 		const out = r.stdout + r.stderr;
 		assert.match(out, /\[dry-run\] git commit/);
@@ -854,14 +832,7 @@ describe("--commit dry-run git operations", () => {
 			extraCommits: 1,
 		});
 		const r = run(
-			[
-				"--mode",
-				"nightly",
-				"--date",
-				"260604",
-				"--commit",
-				"--dry-run",
-			],
+			["--mode", "nightly", "--date", "260604", "--commit", "--dry-run"],
 			root,
 		);
 		assert.equal(r.status, 0);
