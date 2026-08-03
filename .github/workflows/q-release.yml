@@ -2,8 +2,9 @@ name: Quarterly release cut
 
 on:
   schedule:
-    # First day of next quarter (UTC). Version date = Oslo yesterday so last-day work is included.
+    # First day of next quarter (UTC). Version = last completed quarter (see version-sync).
     # 1 Apr → 26.03, 1 Jul → 26.06, 1 Oct → 26.09, 1 Jan → prior year .12
+    # Mid-quarter manual runs also target the last completed line (e.g. 3 Aug → 26.06).
     - cron: "0 0 1 1,4,7,10 *"
   workflow_dispatch:
 
@@ -43,11 +44,12 @@ jobs:
       - name: Resolve release date and branch
         id: release
         run: |
-          # Yesterday in Europe/Oslo = last day of the quarter that just ended
-          YYMM=$(TZ=Europe/Oslo date -d yesterday +%y%m)
-          BRANCH=$(node scripts/version-sync.mjs --mode stable --date "$YYMM" --timezone Europe/Oslo --print-branch)
+          # Last completed quarter (Oslo), not "yesterday" — mid-quarter manual
+          # runs must not cut the in-progress line (e.g. 3 Aug → 26.06, not 26.09).
+          BRANCH=$(node scripts/version-sync.mjs --mode stable --timezone Europe/Oslo --print-branch)
           # Docs / dropdown label is quarter only (YY.MM), never patch
           DOCS_VERSION="${BRANCH#release/}"
+          YYMM=$(printf '%s' "$DOCS_VERSION" | awk -F. '{ printf "%s%02d", $1, $2 }')
           echo "yymm=$YYMM" >> "$GITHUB_OUTPUT"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "docs_version=$DOCS_VERSION" >> "$GITHUB_OUTPUT"
@@ -110,7 +112,6 @@ jobs:
           OUTPUT_FILE=$(mktemp)
           if ! node scripts/version-sync.mjs \
             --mode stable \
-            --date "${{ steps.release.outputs.yymm }}" \
             --timezone Europe/Oslo \
             --commit \
             --github-output >"$OUTPUT_FILE" 2>&1; then
