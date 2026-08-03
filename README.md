@@ -1,5 +1,6 @@
 # Sofie Core
 
+This is a patch
 This is the _Core_ application of the [**Sofie** TV Automation System](https://github.com/Sofie-Automation/Sofie-TV-automation/).
 
 The _Core_ is a _Meteor/Node.JS_-based web server that serves the web GUIs as well as handling the business logic for the Sofie system.
