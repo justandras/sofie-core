@@ -260,6 +260,19 @@ export function getBaseReleaseFromDate({ yy, mm }) {
 	return { yy: yy % 100, mm, pp: 0 };
 }
 
+/**
+ * Last calendar day of the quarter before the one containing this date.
+ * Feed this into getBaseReleaseFromDate for quarterly cuts from main
+ * (e.g. 3 Aug → 30 Jun → line 26.06; do not post-process getBaseReleaseFromDate).
+ */
+export function lastDayOfPreviousCalendarQuarter({ yy, mm }) {
+	const y = yy % 100;
+	if (mm <= 3) return { yy: y === 0 ? 99 : y - 1, mm: 12, dd: 31 };
+	if (mm <= 6) return { yy: y, mm: 3, dd: 31 };
+	if (mm <= 9) return { yy: y, mm: 6, dd: 30 };
+	return { yy: y, mm: 9, dd: 30 };
+}
+
 export function inferTodayYymmdd(timezone = "Europe/Oslo") {
 	const formatter = new Intl.DateTimeFormat("en-GB", {
 		timeZone: timezone,
@@ -626,6 +639,15 @@ function resolveTarget(opts) {
 	if (dateRaw) {
 		versionDate = getDateFromDateString(dateRaw);
 		log(`version date from --date ${dateRaw}: ${JSON.stringify(versionDate)}`);
+	} else if (mode === "stable" && !dateFromReleaseBranch(branch)) {
+		// Cut from main: pick last day of previous calendar quarter, then
+		// getBaseReleaseFromDate maps that date to the release line as usual.
+		versionDate = lastDayOfPreviousCalendarQuarter(
+			inferTodayYymmdd(opts.timezone),
+		);
+		log(
+			`version date from last day of previous calendar quarter (${opts.timezone}): ${JSON.stringify(versionDate)}`,
+		);
 	} else {
 		log(
 			`version date inferred (${opts.timezone}): ${JSON.stringify(versionDate)}`,

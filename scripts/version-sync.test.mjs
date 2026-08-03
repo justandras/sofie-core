@@ -10,6 +10,7 @@ import {
 	getBaseReleaseFromDate,
 	getDateFromDateString,
 	inferTodayYymmdd,
+	lastDayOfPreviousCalendarQuarter,
 	nightlyVersionFromDate,
 	marketingFromRelease,
 	fileVersionFromRelease,
@@ -147,6 +148,26 @@ describe("release line calendar", () => {
 			assert.equal(line.pp, 0);
 		});
 	}
+});
+
+describe("lastDayOfPreviousCalendarQuarter", () => {
+	it("3 Aug → 30 Jun, which maps to release line 26.06", () => {
+		const d = lastDayOfPreviousCalendarQuarter({ yy: 26, mm: 8 });
+		assert.deepEqual(d, { yy: 26, mm: 6, dd: 30 });
+		assert.deepEqual(getBaseReleaseFromDate(d), { yy: 26, mm: 6, pp: 0 });
+	});
+
+	it("1 Oct → 30 Sep → 26.09", () => {
+		const d = lastDayOfPreviousCalendarQuarter({ yy: 26, mm: 10 });
+		assert.deepEqual(d, { yy: 26, mm: 9, dd: 30 });
+		assert.deepEqual(getBaseReleaseFromDate(d), { yy: 26, mm: 9, pp: 0 });
+	});
+
+	it("1 Jan → 31 Dec prior year → .12", () => {
+		const d = lastDayOfPreviousCalendarQuarter({ yy: 26, mm: 1 });
+		assert.deepEqual(d, { yy: 25, mm: 12, dd: 31 });
+		assert.deepEqual(getBaseReleaseFromDate(d), { yy: 25, mm: 12, pp: 0 });
+	});
 });
 
 describe("version string helpers", () => {
