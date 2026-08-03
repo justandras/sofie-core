@@ -444,6 +444,33 @@ function runLernaSetVersion(version, dryRun) {
 	log("lerna set-version finished");
 }
 
+/**
+ * Portal deps in meteor/yarn.lock embed packages/* versions (e.g. npm:26.6.0).
+ * yarn set-version updates packages/yarn.lock, but meteor must be refreshed separately
+ * (same as meteor commit-and-tag-version postbump).
+ */
+function refreshYarnLockfiles(dryRun) {
+	if (dryRun) {
+		log("[dry-run] would refresh packages/yarn.lock and meteor/yarn.lock");
+		return;
+	}
+	const yarnStdio = bufferLogs
+		? ["inherit", process.stderr, process.stderr]
+		: "inherit";
+	log("refreshing packages/yarn.lock");
+	execFileSync("yarn", ["install"], {
+		cwd: path.join(REPO_ROOT, "packages"),
+		stdio: yarnStdio,
+		env: { ...process.env, CI: "true" },
+	});
+	log("refreshing meteor/yarn.lock");
+	execFileSync("yarn", ["install"], {
+		cwd: path.join(REPO_ROOT, "meteor"),
+		stdio: yarnStdio,
+		env: { ...process.env, CI: "true" },
+	});
+}
+
 function lernaVersionOutOfSync(targetVersion) {
 	const lerna = JSON.parse(fs.readFileSync(LERNA_JSON, "utf8"));
 	return lerna.version !== targetVersion;
@@ -793,6 +820,7 @@ function versionSync(target, opts) {
 	}
 
 	if (changed) {
+		refreshYarnLockfiles(readOnly);
 		log(readOnly ? "repository would change" : "repository was updated");
 	} else {
 		log("no file changes required");
@@ -839,6 +867,7 @@ function commitMessageForTarget(target) {
 
 const VERSION_COMMIT_PATHS = [
 	"meteor/package.json",
+	"meteor/yarn.lock",
 	"meteor/server/migration",
 	"packages/lerna.json",
 	"packages",
