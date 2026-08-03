@@ -448,6 +448,8 @@ function runLernaSetVersion(version, dryRun) {
  * Portal deps in meteor/yarn.lock embed packages/* versions (e.g. npm:26.6.0).
  * yarn set-version updates packages/yarn.lock, but meteor must be refreshed separately
  * (same as meteor commit-and-tag-version postbump).
+ *
+ * Must use --no-immutable: CI=true makes Yarn refuse lockfile updates (YN0028).
  */
 function refreshYarnLockfiles(dryRun) {
 	if (dryRun) {
@@ -457,17 +459,18 @@ function refreshYarnLockfiles(dryRun) {
 	const yarnStdio = bufferLogs
 		? ["inherit", process.stderr, process.stderr]
 		: "inherit";
+	const env = { ...process.env, CI: "true" };
 	log("refreshing packages/yarn.lock");
-	execFileSync("yarn", ["install"], {
+	execFileSync("yarn", ["install", "--no-immutable"], {
 		cwd: path.join(REPO_ROOT, "packages"),
 		stdio: yarnStdio,
-		env: { ...process.env, CI: "true" },
+		env,
 	});
 	log("refreshing meteor/yarn.lock");
-	execFileSync("yarn", ["install"], {
+	execFileSync("yarn", ["install", "--no-immutable"], {
 		cwd: path.join(REPO_ROOT, "meteor"),
 		stdio: yarnStdio,
-		env: { ...process.env, CI: "true" },
+		env,
 	});
 }
 
