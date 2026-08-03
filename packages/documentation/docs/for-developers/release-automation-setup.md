@@ -12,7 +12,7 @@ Version numbering, release cadence, and hotfix process are documented in [Versio
 
 ## Authentication model
 
-Release jobs push commits and tags to `main` and `release/**`, and those pushes must be able to start other workflows (notably [`deploy-docs.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/deploy-docs.yml) after a quarterly documentation snapshot).
+Release jobs push commits and tags to `main` and `release/**`. After a quarterly docs snapshot, `q-release` also dispatches [`deploy-docs.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/deploy-docs.yml) explicitly so GitHub Pages updates.
 
 Jobs therefore authenticate as a **GitHub App installation**, not as the default `GITHUB_TOKEN` / `github-actions[bot]`.
 
@@ -91,7 +91,7 @@ Cron triggers only register for workflow files on the repository default branch,
 
 Quarterly release cuts snapshot the developer documentation on `main` with Docusaurus `docs:version YY.MM` before creating `release/YY.MM`. Patch releases do not create a new documentation version. See [Version Numbering](version-numbering.md).
 
-[`deploy-docs.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/deploy-docs.yml) builds and publishes from pushes to `main`. The Pages source for the repository is **GitHub Actions**; the deploy job uses the `github-pages` Environment. The quarterly documentation commit is intentionally **not** marked `[skip ci]`, so that push can start `deploy-docs`. A push performed with `GITHUB_TOKEN` would not start that workflow.
+[`deploy-docs.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/deploy-docs.yml) builds and publishes from pushes to `main`, and also accepts `workflow_dispatch`. After a quarterly docs snapshot, `q-release.yml` pushes the commit with the GitHub App and then explicitly runs `gh workflow run deploy-docs.yml` (App pushes do not reliably chain into other workflows). The Pages source for the repository is **GitHub Actions**; the deploy job uses the `github-pages` Environment.
 
 ## Workflow dependencies on this configuration
 
@@ -100,7 +100,7 @@ Quarterly release cuts snapshot the developer documentation on `main` with Docus
 | `nightly.yml`      | Daily cron (~23:00 UTC) or `workflow_dispatch`                                  | Yes               | App on `main` only             | `main`: version commit + nightly tags; other branches: dispatch `publish-libs` / `node.yaml` on the same ref |
 | `q-release.yml`    | Quarterly cron (1 Jan / 1 Apr / 1 Jul / 1 Oct UTC) or `workflow_dispatch`       | Yes               | Yes                            | Docs snapshot on `main`; `release/YY.MM`; stable tags                                                        |
 | `hotfix-patch.yml` | Push to `release/**` (path-filtered); skips the App bot and `[skip ci]` commits | No                | Yes                            | Patch version commit on the release branch; stable tags                                                      |
-| `deploy-docs.yml`  | Push to `main`                                                                  | `github-pages`    | Default token for Pages deploy | Publishes the documentation site                                                                             |
+| `deploy-docs.yml` | Push to `main`, or `workflow_dispatch` (also triggered by `q-release` after a docs snapshot) | `github-pages` | Default token for Pages deploy | Publishes the documentation site |
 
 `hotfix-patch` runs `scripts/version-sync.mjs` from **`main`** against a checkout of the triggering `release/**` ref, so patch bumps always use the sync script as it exists on `main`.
 
