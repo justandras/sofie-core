@@ -91,7 +91,7 @@ Cron triggers only register for workflow files on the repository default branch,
 
 Quarterly release cuts snapshot the developer documentation on `main` with Docusaurus `docs:version YY.MM` before creating `release/YY.MM`. Patch releases do not create a new documentation version. See [Version Numbering](version-numbering.md).
 
-[`deploy-docs.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/deploy-docs.yml) builds and publishes from pushes to `main`, and also accepts `workflow_dispatch`. After a quarterly docs snapshot, `q-release.yml` pushes the commit with the GitHub App and then explicitly runs `gh workflow run deploy-docs.yml` (App pushes do not reliably chain into other workflows). The Pages source for the repository is **GitHub Actions**; the deploy job uses the `github-pages` Environment.
+[`deploy-docs.yml`](https://github.com/Sofie-Automation/sofie-core/blob/main/.github/workflows/deploy-docs.yml) builds and publishes from pushes to `main`, and also accepts `workflow_dispatch`. After a quarterly docs snapshot, `q-release.yml` pushes the commit with the GitHub App and then explicitly runs `gh workflow run deploy-docs.yml` (App pushes do not reliably chain into other workflows). The docs snapshot runs even if the release branch already exists, as long as that `YY.MM` is missing from `versions.json`. The Pages source for the repository is **GitHub Actions**; the deploy job uses the `github-pages` Environment.
 
 ## Workflow dependencies on this configuration
 

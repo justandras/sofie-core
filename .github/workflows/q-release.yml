@@ -65,8 +65,9 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Docs snapshot is independent of whether the release branch already exists
+      # (otherwise a re-run after a bad cut never creates the correct docs version).
       - name: Snapshot Docusaurus docs on main
-        if: steps.exists.outputs.skip != 'true'
         id: docs
         run: |
           set -euo pipefail
@@ -87,12 +88,11 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # No [skip ci]: deploy-docs.yml must run so GitHub Pages picks up the new version
           git commit -m "chore(docs): snapshot documentation for ${DOCS_VERSION}"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Push docs snapshot to main
-        if: steps.exists.outputs.skip != 'true' && steps.docs.outputs.changed == 'true'
+        if: steps.docs.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
@@ -100,7 +100,7 @@ jobs:
           git push origin HEAD:main
 
       - name: Trigger docs deploy
-        if: steps.exists.outputs.skip != 'true' && steps.docs.outputs.changed == 'true'
+        if: steps.docs.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -152,11 +152,11 @@ jobs:
       - name: Summary
         if: always()
         run: |
+          echo "Docs version target: \`${{ steps.release.outputs.docs_version }}\` (changed=${{ steps.docs.outputs.changed }})" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.exists.outputs.skip }}" = "true" ]; then
-            echo "Skipped: branch already exists" >> "$GITHUB_STEP_SUMMARY"
+            echo "Skipped release branch: already exists" >> "$GITHUB_STEP_SUMMARY"
           elif [ "${{ steps.sync.outputs.skipped }}" = "true" ]; then
-            echo "Skipped: no release changes (${{ steps.sync.outputs.json }})" >> "$GITHUB_STEP_SUMMARY"
+            echo "Skipped version sync: no release changes (${{ steps.sync.outputs.json }})" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "Docs version: \`${{ steps.release.outputs.docs_version }}\` (committed on main before branch cut)" >> "$GITHUB_STEP_SUMMARY"
             echo "Released ${{ steps.sync.outputs.json }}" >> "$GITHUB_STEP_SUMMARY"
           fi
