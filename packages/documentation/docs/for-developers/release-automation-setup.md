@@ -70,7 +70,9 @@ Manual `nightly` runs use the branch selected in the Actions UI (“Use workflow
 
 Human contributors are expected to land changes on `main` and `release/**` through pull requests with status checks. The release App is an exception: it must push version commits, documentation snapshots, and tags directly.
 
-Rulesets (or classic branch protection) for `main` and `release/**` therefore include the App’s bot user on the **bypass list** for required pull requests. Without that bypass, pushes fail with `GH013` (changes must be made through a pull request) even when the installation token is valid.
+Rulesets (or classic branch protection) for `main` and `release/**` therefore include the App on the **bypass list** for required pull requests, with bypass mode **Always allow** (not “For pull requests only” — that mode still blocks direct `git push`). Target branches must include `main` and `release/**` (fnmatch). Without that bypass, pushes fail with `GH013` even when the installation token is valid.
+
+Workflows must push as the App, not as `GITHUB_TOKEN` / `github-actions[bot]` (checkout’s default credentials are not on the bypass list). `app-git-auth` clears checkout’s stored token and sets the remote to the App installation token.
 
 Tag behaviour used by the automation:
 
@@ -111,7 +113,7 @@ Release jobs install packages with `yarn --cwd packages install --immutable` (li
 | Symptom                                            | Typical cause                                                                                    |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Cannot mint App token / auth step fails            | Missing or incorrect `APP_CLIENT_ID` / `APP_PRIVATE_KEY`, or App not installed on the repository |
-| `GH013` on `git push`                              | App bot not on the ruleset / branch-protection bypass list                                       |
+| `GH013` on `git push`                              | App missing from bypass list, bypass mode is “PRs only”, ruleset doesn’t target the branch, or push still authenticated as `GITHUB_TOKEN` |
 | Job waiting indefinitely or failing on Environment | Missing Environment, or `release-automatic` incorrectly requires reviewers on cron               |
 | Docs snapshot on `main` but site unchanged         | Pages not set to GitHub Actions, or push identity that does not chain workflows                  |
 | Cron never runs                                    | Actions schedules disabled (common on forks) or workflow file not on the default branch          |

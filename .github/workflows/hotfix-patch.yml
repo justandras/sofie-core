@@ -49,6 +49,8 @@ jobs:
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
+          # Avoid persisting GITHUB_TOKEN; App token must be the push identity for ruleset bypass.
+          persist-credentials: false
 
       - name: Authenticate as GitHub App
         id: auth
