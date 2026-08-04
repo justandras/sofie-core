@@ -111,11 +111,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ steps.target.outputs.branch }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # Same ref as this dispatch — no cross-branch retargeting.
-          gh workflow run publish-libs.yml --ref "$BRANCH"
-          gh workflow run node.yaml --ref "$BRANCH"
+          # No checkout on feature nightlies — tell gh which repo explicitly.
+          gh workflow run publish-libs.yml --repo "$REPOSITORY" --ref "$BRANCH"
+          gh workflow run node.yaml --repo "$REPOSITORY" --ref "$BRANCH"
           echo "Triggered publish-libs.yml and node.yaml on \`$BRANCH\` (no git commit/tag)." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
