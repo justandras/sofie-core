@@ -42,7 +42,16 @@ runs:
         GH_TOKEN: ${{ steps.app-token.outputs.token }}
         APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         USER_ID: ${{ steps.get-user-id.outputs.user-id }}
+        REPOSITORY: ${{ github.repository }}
       run: |
+        # actions/checkout stores GITHUB_TOKEN in http.extraheader; that identity is
+        # NOT on ruleset bypass lists, so clear it before App auth is used for push.
+        git config --local --unset-all http.https://github.com/.extraheader || true
+        while IFS= read -r key; do
+          git config --local --unset-all "$key" || true
+        done < <(git config --local --name-only --get-regexp '^includeIf\.gitdir:' || true)
+
         git config --global user.name "${APP_SLUG}[bot]"
         git config --global user.email "${USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
         gh auth setup-git
+        git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
