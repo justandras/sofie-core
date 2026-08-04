@@ -23,7 +23,7 @@ import { logger } from './client/lib/logging.js'
 import './client/lib/logStatus.js'
 
 if ('serviceWorker' in navigator) {
-	// Use the window load event to keep the page load performant
+	// Use the window load event to keep the page load performant, patch
 	window.addEventListener('load', () => {
 		// in some versions of Chrome, registering the Service Worker over HTTP throws an arror
 		if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
