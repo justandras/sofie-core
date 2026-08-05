@@ -178,39 +178,35 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       # Check how the image should be built and pushed
-      - name: Determine if images should be published to DockerHub
-        id: dockerhub
+      - name: Determine image publish targets
+        id: publish
+        env:
+          DOCKERHUB_PREFIX: ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}
         run: |
           # release branch, main, tag, or feature-branch workflow_dispatch (test nightlies)
           if [[ "${{ github.ref }}" =~ ^refs/heads/release([0-9]+)$ || "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == refs/tags/* ]] \
             || [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.ref_name }}" != "main" ]]
           then
-            DOCKERHUB_PUBLISH="1"
+            PUBLISH="1"
           else
-            DOCKERHUB_PUBLISH="0"
+            PUBLISH="0"
           fi
-          # debug output
-          echo "dockerhub-publish $DOCKERHUB_PUBLISH"
-          echo "dockerhub-publish=$DOCKERHUB_PUBLISH" >> $GITHUB_OUTPUT
-      - name: Check if push to GHCR is enabled
-        id: check-ghcr
-        env:
-          GHCR_ENABLED: ${{ secrets.GHCR_ENABLED }}
-        run: |
-          echo "Enable push to GHCR: ${{ env.GHCR_ENABLED != '' }}"
-          echo "enable=${{ env.GHCR_ENABLED != '' }}" >> $GITHUB_OUTPUT
-      - name: Check if there is access to repo secrets (needed for build and push)
-        if: steps.dockerhub.outputs.dockerhub-publish == '1' || steps.check-ghcr.outputs.enable == 'true'
-        id: check-build-and-push
-        env:
-          SECRET_ACCESS: ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}
-        run: |
-          echo "Enable build and push: ${{ env.SECRET_ACCESS != '' }}"
-          echo "enable=${{ env.SECRET_ACCESS != '' }}" >> $GITHUB_OUTPUT
+          # GHCR is always on for publishable refs (no opt-in secret). DockerHub needs a configured prefix.
+          if [ "$PUBLISH" = "1" ]; then
+            echo "push-ghcr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push-ghcr=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$PUBLISH" = "1" ] && [ -n "$DOCKERHUB_PREFIX" ]; then
+            echo "push-dockerhub=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push-dockerhub=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "publish=$PUBLISH dockerhub-prefix-set=$([ -n "$DOCKERHUB_PREFIX" ] && echo yes || echo no)"
 
-      # No-push build if no destination
+      # No-push build if not a publishable ref
       - name: Build without push
-        if: steps.check-build-and-push.outputs.enable != 'true'
+        if: steps.publish.outputs.push-ghcr != 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -218,10 +214,10 @@ jobs:
           push: false
           provenance: false
 
-      # GHCR build
+      # GHCR build (default destination — always when publishing)
       - name: Get the Docker tag for GHCR
         id: ghcr-tag
-        if: steps.check-build-and-push.outputs.enable == 'true'
+        if: steps.publish.outputs.push-ghcr == 'true'
         uses: docker/metadata-action@v6
         with:
           images: |
@@ -233,14 +229,14 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.feature-nightly.outputs.version }},enable=${{ steps.feature-nightly.outputs.version != '' }}
       - name: Login to GitHub Container Registry
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true'
+        if: steps.publish.outputs.push-ghcr == 'true'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push to GHCR
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true' && steps.ghcr-tag.outputs.tags != 0
+        if: steps.publish.outputs.push-ghcr == 'true' && steps.ghcr-tag.outputs.tags != ''
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -251,10 +247,10 @@ jobs:
           tags: "${{ steps.ghcr-tag.outputs.tags }}"
           github-token: ${{ github.token }}
 
-      # Dockerhub push
+      # Dockerhub (optional — only when DOCKERHUB_IMAGE_PREFIX is configured)
       - name: Get the Docker tag for DockerHub
         id: dockerhub-tag
-        if: steps.check-build-and-push.outputs.enable == 'true'
+        if: steps.publish.outputs.push-dockerhub == 'true'
         uses: docker/metadata-action@v6
         with:
           images: |
@@ -266,13 +262,13 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.feature-nightly.outputs.version }},enable=${{ steps.feature-nightly.outputs.version != '' }}
       - name: Login to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
+        if: steps.publish.outputs.push-dockerhub == 'true'
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
+        if: steps.publish.outputs.push-dockerhub == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -341,39 +337,35 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       # Check how the image should be built and pushed
-      - name: Determine if images should be published to DockerHub
-        id: dockerhub
+      - name: Determine image publish targets
+        id: publish
+        env:
+          DOCKERHUB_PREFIX: ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}
         run: |
           # release branch, main, tag, or feature-branch workflow_dispatch (test nightlies)
           if [[ "${{ github.ref }}" =~ ^refs/heads/release([0-9]+)$ || "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == refs/tags/* ]] \
             || [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.ref_name }}" != "main" ]]
           then
-            DOCKERHUB_PUBLISH="1"
+            PUBLISH="1"
           else
-            DOCKERHUB_PUBLISH="0"
+            PUBLISH="0"
           fi
-          # debug output
-          echo "dockerhub-publish $DOCKERHUB_PUBLISH"
-          echo "dockerhub-publish=$DOCKERHUB_PUBLISH" >> $GITHUB_OUTPUT
-      - name: Check if push to GHCR is enabled
-        id: check-ghcr
-        env:
-          GHCR_ENABLED: ${{ secrets.GHCR_ENABLED }}
-        run: |
-          echo "Enable push to GHCR: ${{ env.GHCR_ENABLED != '' }}"
-          echo "enable=${{ env.GHCR_ENABLED != '' }}" >> $GITHUB_OUTPUT
-      - name: Check if there is access to repo secrets (needed for build and push)
-        if: steps.dockerhub.outputs.dockerhub-publish == '1' || steps.check-ghcr.outputs.enable == 'true'
-        id: check-build-and-push
-        env:
-          SECRET_ACCESS: ${{ secrets.DOCKERHUB_IMAGE_PREFIX }}
-        run: |
-          echo "Enable build and push: ${{ env.SECRET_ACCESS != '' }}"
-          echo "enable=${{ env.SECRET_ACCESS != '' }}" >> $GITHUB_OUTPUT
+          # GHCR is always on for publishable refs (no opt-in secret). DockerHub needs a configured prefix.
+          if [ "$PUBLISH" = "1" ]; then
+            echo "push-ghcr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push-ghcr=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$PUBLISH" = "1" ] && [ -n "$DOCKERHUB_PREFIX" ]; then
+            echo "push-dockerhub=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push-dockerhub=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "publish=$PUBLISH dockerhub-prefix-set=$([ -n "$DOCKERHUB_PREFIX" ] && echo yes || echo no)"
 
-      # No-push build if no destination
+      # No-push build if not a publishable ref
       - name: Build without push
-        if: steps.check-build-and-push.outputs.enable != 'true'
+        if: steps.publish.outputs.push-ghcr != 'true'
         uses: docker/build-push-action@v7
         with:
           context: ./packages
@@ -381,10 +373,10 @@ jobs:
           push: false
           provenance: false
 
-      # GHCR build
+      # GHCR build (default destination — always when publishing)
       - name: Get the Docker tag for GHCR
         id: ghcr-tag
-        if: steps.check-build-and-push.outputs.enable == 'true'
+        if: steps.publish.outputs.push-ghcr == 'true'
         uses: docker/metadata-action@v6
         with:
           images: |
@@ -396,14 +388,14 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.feature-nightly.outputs.version }},enable=${{ steps.feature-nightly.outputs.version != '' }}
       - name: Login to GitHub Container Registry
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true'
+        if: steps.publish.outputs.push-ghcr == 'true'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push to GHCR
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.check-ghcr.outputs.enable == 'true' && steps.ghcr-tag.outputs.tags != 0
+        if: steps.publish.outputs.push-ghcr == 'true' && steps.ghcr-tag.outputs.tags != ''
         uses: docker/build-push-action@v7
         with:
           context: ./packages
@@ -413,10 +405,10 @@ jobs:
           labels: ${{ steps.ghcr-tag.outputs.labels }}
           tags: "${{ steps.ghcr-tag.outputs.tags }}"
 
-      # Dockerhub push
+      # DockerHub (optional — only when DOCKERHUB_IMAGE_PREFIX is configured)
       - name: Get the Docker tag for DockerHub
         id: dockerhub-tag
-        if: steps.check-build-and-push.outputs.enable == 'true'
+        if: steps.publish.outputs.push-dockerhub == 'true'
         uses: docker/metadata-action@v6
         with:
           images: |
@@ -428,13 +420,13 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.feature-nightly.outputs.version }},enable=${{ steps.feature-nightly.outputs.version != '' }}
       - name: Login to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
+        if: steps.publish.outputs.push-dockerhub == 'true'
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push to DockerHub
-        if: steps.check-build-and-push.outputs.enable == 'true' && steps.dockerhub.outputs.dockerhub-publish == '1'
+        if: steps.publish.outputs.push-dockerhub == 'true'
         uses: docker/build-push-action@v7
         with:
           context: ./packages
