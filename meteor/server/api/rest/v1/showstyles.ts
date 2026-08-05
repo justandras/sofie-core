@@ -37,6 +37,7 @@ class ShowStylesServerAPI implements ShowStylesRestAPI {
 		const showStyleBases = (await ShowStyleBases.findFetchAsync({}, { projection: { _id: 1 } })) as Array<
 			Pick<DBShowStyleBase, '_id'>
 		>
+
 		return ClientAPI.responseSuccess(showStyleBases.map((base) => ({ id: unprotectString(base._id) })))
 	}
 
